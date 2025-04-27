@@ -33,12 +33,12 @@ export default function Home() {
   }, [showLoginModal, showSamplePlanModal])
 
   return (
-    <main className="relative min-h-screen overflow-x-hidden bg-gradient-to-b from-[#0A0A0A] to-[#1C1C2E] text-white">
-      <motion.div className="absolute inset-0 z-0 opacity-20 pointer-events-none" style={{ y: backgroundY }}>
+    <main className="relative w-full min-h-screen bg-gradient-to-b from-[#0A0A0A] to-[#1C1C2E] text-white">
+      <motion.div className="fixed inset-0 z-0 opacity-20 pointer-events-none" style={{ y: backgroundY }}>
         <div className="absolute inset-0 bg-[url('/background-grid.svg')] bg-repeat opacity-10"></div>
       </motion.div>
 
-      <div className="relative z-10">
+      <div className="relative z-10 w-full">
         <Navbar onLoginClick={() => setShowLoginModal(true)} />
         <Hero onGetStartedClick={() => setShowLoginModal(true)} />
         <WhyBhaag />
@@ -51,7 +51,6 @@ export default function Home() {
       </div>
 
       {showLoginModal && <LoginModal onClose={() => setShowLoginModal(false)} />}
-
       {showSamplePlanModal && <SamplePlanModal onClose={() => setShowSamplePlanModal(false)} />}
     </main>
   )

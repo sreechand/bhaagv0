@@ -53,6 +53,10 @@
   * {
     @apply border-border;
   }
+  html, body {
+    @apply h-full w-full m-0 p-0;
+    overflow-x: hidden;
+  }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;

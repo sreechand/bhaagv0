@@ -90,9 +90,7 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
             onClick={() => scrollToSection("sample")}
           />
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Button onClick={onLoginClick} className="bg-primary text-black font-raleway font-semibold hover:glow">
-              Login
-            </Button>
+            <a href="/auth/login"><Button>Login</Button></a>
           </motion.div>
         </motion.nav>
 
@@ -117,15 +115,7 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
             <MobileNavLink href="#features" label="How it Works" onClick={() => scrollToSection("features")} />
             <MobileNavLink href="#faq" label="FAQ" onClick={() => scrollToSection("faq")} />
             <MobileNavLink href="#sample" label="Try a Sample Plan" onClick={() => scrollToSection("sample")} />
-            <Button
-              onClick={() => {
-                onLoginClick()
-                setIsOpen(false)
-              }}
-              className="bg-primary text-black font-raleway font-semibold w-full"
-            >
-              Login
-            </Button>
+            <a href="/auth/login"><Button>Login</Button></a>
           </div>
         </motion.div>
       )}

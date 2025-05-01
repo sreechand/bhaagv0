@@ -56,10 +56,14 @@
   html, body {
     @apply h-full w-full m-0 p-0;
     overflow-x: hidden;
+    font-family: var(--font-inter), system-ui, sans-serif;
   }
   body {
     @apply bg-background text-foreground;
     font-feature-settings: "rlig" 1, "calt" 1;
+  }
+  section {
+    scroll-margin-top: 80px;
   }
   h1,
   h2,
@@ -67,7 +71,8 @@
   h4,
   h5,
   h6 {
-    @apply font-exo font-black uppercase tracking-wider;
+    font-family: var(--font-exo), system-ui, sans-serif;
+    @apply font-black uppercase tracking-wider;
   }
   h1 {
     @apply text-5xl md:text-6xl lg:text-7xl;
@@ -79,7 +84,7 @@
     @apply text-3xl md:text-4xl;
   }
   p {
-    @apply font-inter;
+    font-family: var(--font-inter), system-ui, sans-serif;
   }
 }
 
@@ -118,7 +123,8 @@
 
   .btn-primary {
     @apply bg-primary text-black font-bold py-3 px-8 rounded-md transition-all duration-300 
-    hover:scale-105 hover:glow relative overflow-hidden;
+    hover:scale-105 hover:brightness-110 hover:glow active:scale-95 relative overflow-hidden;
+    font-family: var(--font-barlow), system-ui, sans-serif;
   }
 
   .btn-primary::after {

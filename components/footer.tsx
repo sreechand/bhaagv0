@@ -32,7 +32,7 @@ export default function Footer() {
             >
               <h4 className="text-xl font-exo font-bold mb-4">Links</h4>
               <ul className="space-y-2">
-                <FooterLink href="#features">How it Works</FooterLink>
+                <FooterLink href="#why-bhaag">How it Works</FooterLink>
                 <FooterLink href="#faq">FAQ</FooterLink>
                 <FooterLink href="#sample">Try a Sample Plan</FooterLink>
                 <FooterLink href="#">Privacy Policy</FooterLink>

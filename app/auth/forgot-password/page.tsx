@@ -35,7 +35,7 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-background relative">
       <Link 
         href="/" 
-        className="absolute left-4 top-4 flex items-center text-gray-600 hover:text-gray-900"
+        className="absolute left-4 top-4 flex items-center text-primary hover:text-primary/80 transition-colors"
       >
         <ArrowLeft className="w-4 h-4 mr-2" />
         Back to Home
@@ -62,7 +62,11 @@ export default function ForgotPasswordPage() {
         {error && <div className="text-red-500 text-sm">{error}</div>}
         {success && <div className="text-green-500 text-sm">{success}</div>}
 
-        <Button type="submit" className="w-full" disabled={loading}>
+        <Button 
+          type="submit" 
+          className="w-full hover:bg-primary/90 transition-colors" 
+          disabled={loading}
+        >
           {loading ? "Sending..." : "Send Reset Email"}
         </Button>
 

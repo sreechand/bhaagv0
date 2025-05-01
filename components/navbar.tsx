@@ -4,6 +4,7 @@ import { useState, useEffect } from "react"
 import { motion, useScroll, useTransform } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Menu, X } from "lucide-react"
+import Link from "next/link"
 
 interface NavbarProps {
   onLoginClick: () => void
@@ -15,38 +16,41 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
   const { scrollY } = useScroll()
 
   const backgroundColor = useTransform(scrollY, [0, 100], ["rgba(10, 10, 10, 0)", "rgba(10, 10, 10, 0.8)"])
-
   const backdropBlur = useTransform(scrollY, [0, 100], ["blur(0px)", "blur(8px)"])
 
   useEffect(() => {
     const handleScroll = () => {
       const sections = document.querySelectorAll("section[id]")
-      const scrollPosition = window.scrollY + 100
+      const scrollPosition = window.scrollY + window.innerHeight / 4
 
+      let currentSection = "home"
       sections.forEach((section) => {
-        const sectionTop = (section as HTMLElement).offsetTop
+        const sectionTop = (section as HTMLElement).offsetTop - 100
         const sectionHeight = (section as HTMLElement).offsetHeight
-        const sectionId = section.getAttribute("id") || ""
+        const sectionBottom = sectionTop + sectionHeight
 
-        if (scrollPosition >= sectionTop && scrollPosition < sectionTop + sectionHeight) {
-          setActiveSection(sectionId)
+        if (scrollPosition >= sectionTop && scrollPosition < sectionBottom) {
+          currentSection = section.getAttribute("id") || ""
         }
       })
+      setActiveSection(currentSection)
     }
 
     window.addEventListener("scroll", handleScroll)
+    handleScroll() // Call once on mount
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
   const scrollToSection = (sectionId: string) => {
     const section = document.getElementById(sectionId)
     if (section) {
-      window.scrollTo({
-        top: section.offsetTop - 80,
+      section.scrollIntoView({ 
         behavior: "smooth",
+        block: "start"
       })
+      setActiveSection(sectionId)
+      setIsOpen(false)
     }
-    setIsOpen(false)
   }
 
   return (
@@ -64,9 +68,9 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <a href="#" onClick={() => scrollToSection("home")} className="flex items-center">
+          <button onClick={() => scrollToSection("home")} className="flex items-center">
             <span className="text-4xl font-exo font-black tracking-wider text-primary">BHAAG</span>
-          </a>
+          </button>
         </motion.div>
 
         {/* Desktop Navigation */}
@@ -77,12 +81,17 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
           transition={{ duration: 0.5, delay: 0.2 }}
         >
           <NavLink
-            href="#features"
+            href="#why-bhaag"
             label="How it Works"
-            active={activeSection === "features"}
-            onClick={() => scrollToSection("features")}
+            active={activeSection === "why-bhaag"}
+            onClick={() => scrollToSection("why-bhaag")}
           />
-          <NavLink href="#faq" label="FAQ" active={activeSection === "faq"} onClick={() => scrollToSection("faq")} />
+          <NavLink 
+            href="#faq" 
+            label="FAQ" 
+            active={activeSection === "faq"} 
+            onClick={() => scrollToSection("faq")} 
+          />
           <NavLink
             href="#sample"
             label="Try a Sample Plan"
@@ -90,7 +99,9 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
             onClick={() => scrollToSection("sample")}
           />
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <a href="/auth/login"><Button>Login</Button></a>
+            <Link href="/auth/login">
+              <Button className="btn-primary">Login</Button>
+            </Link>
           </motion.div>
         </motion.nav>
 
@@ -112,10 +123,12 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
           transition={{ duration: 0.3 }}
         >
           <div className="container mx-auto flex flex-col space-y-4 px-6">
-            <MobileNavLink href="#features" label="How it Works" onClick={() => scrollToSection("features")} />
+            <MobileNavLink href="#why-bhaag" label="How it Works" onClick={() => scrollToSection("why-bhaag")} />
             <MobileNavLink href="#faq" label="FAQ" onClick={() => scrollToSection("faq")} />
             <MobileNavLink href="#sample" label="Try a Sample Plan" onClick={() => scrollToSection("sample")} />
-            <a href="/auth/login"><Button>Login</Button></a>
+            <Link href="/auth/login">
+              <Button className="w-full btn-primary">Login</Button>
+            </Link>
           </div>
         </motion.div>
       )}
@@ -132,12 +145,8 @@ interface NavLinkProps {
 
 function NavLink({ href, label, active, onClick }: NavLinkProps) {
   return (
-    <a
-      href={href}
-      onClick={(e) => {
-        e.preventDefault()
-        onClick()
-      }}
+    <button
+      onClick={onClick}
       className={`relative font-barlow font-semibold transition-colors duration-300 ${
         active ? "text-primary" : "text-white hover:text-primary/80"
       }`}
@@ -150,22 +159,18 @@ function NavLink({ href, label, active, onClick }: NavLinkProps) {
           transition={{ type: "spring", stiffness: 380, damping: 30 }}
         />
       )}
-    </a>
+    </button>
   )
 }
 
 function MobileNavLink({ href, label, onClick }: NavLinkProps) {
   return (
-    <a
-      href={href}
-      onClick={(e) => {
-        e.preventDefault()
-        onClick()
-      }}
-      className="block py-2 text-lg font-barlow font-medium text-white hover:text-primary transition-colors duration-300"
+    <button
+      onClick={onClick}
+      className="block w-full py-2 text-lg font-barlow font-medium text-left text-white hover:text-primary transition-colors duration-300"
     >
       {label}
-    </a>
+    </button>
   )
 }
 

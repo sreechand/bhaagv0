@@ -34,7 +34,7 @@ export default function KeyFeatures() {
   const isInView = useInView(ref, { once: false, amount: 0.2 })
 
   return (
-    <section className="py-20 relative bg-black/30">
+    <section id="key-features" className="py-20 relative bg-black/30">
       <div className="container mx-auto px-6">
         <motion.div
           ref={ref}

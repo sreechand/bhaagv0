@@ -38,7 +38,7 @@ export default function WhyBhaag() {
   const isInView = useInView(ref, { once: false, amount: 0.2 })
 
   return (
-    <section id="features" className="py-20 relative">
+    <section id="why-bhaag" className="py-20 relative">
       <div className="container mx-auto px-6">
         <motion.div
           ref={ref}

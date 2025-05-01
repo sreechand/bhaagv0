@@ -4,6 +4,7 @@ import { useEffect, useRef, useState } from "react"
 import { motion, useAnimation } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { ChevronDown } from "lucide-react"
+import Link from "next/link"
 
 interface HeroProps {
   onGetStartedClick: () => void
@@ -94,7 +95,7 @@ export default function Hero({ onGetStartedClick }: HeroProps) {
   }, [])
 
   const scrollToFeatures = () => {
-    const featuresSection = document.getElementById("features")
+    const featuresSection = document.getElementById("why-bhaag")
     if (featuresSection) {
       featuresSection.scrollIntoView({ behavior: "smooth" })
     }
@@ -151,8 +152,8 @@ export default function Hero({ onGetStartedClick }: HeroProps) {
               className="mb-16"
             >
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button onClick={onGetStartedClick} className="btn-primary text-lg font-barlow">
-                  Get Started
+                <Button asChild className="btn-primary text-lg font-barlow">
+                  <Link href="/auth/signup">Get Started</Link>
                 </Button>
               </motion.div>
             </motion.div>

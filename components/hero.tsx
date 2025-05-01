@@ -5,6 +5,8 @@ import { motion, useAnimation } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { ChevronDown } from "lucide-react"
 import Link from "next/link"
+import Logo from "@/components/ui/logo"
+import { Bell } from "lucide-react"
 
 interface HeroProps {
   onGetStartedClick: () => void
@@ -175,41 +177,10 @@ export default function Hero({ onGetStartedClick }: HeroProps) {
                 <div className="h-[600px] w-full overflow-hidden rounded-[2rem] bg-gradient-to-b from-[#0A0A0A] to-[#1C1C2E] p-4 relative">
                   {/* App header */}
                   <div className="flex justify-between items-center mb-4">
-                    <div className="text-primary font-exo font-black text-2xl">BHAAG</div>
+                    <Logo className="text-2xl" showGlow={false} href={undefined} />
                     <div className="flex space-x-2">
                       <div className="w-8 h-8 rounded-full bg-black/40 flex items-center justify-center">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="text-primary"
-                        >
-                          <path d="M18 8A6 6 0 0 0 6 8c0 7-3 9-3 9h18s-3-2-3-9"></path>
-                          <path d="M13.73 21a2 2 0 0 1-3.46 0"></path>
-                        </svg>
-                      </div>
-                      <div className="w-8 h-8 rounded-full bg-black/40 flex items-center justify-center">
-                        <svg
-                          xmlns="http://www.w3.org/2000/svg"
-                          width="16"
-                          height="16"
-                          viewBox="0 0 24 24"
-                          fill="none"
-                          stroke="currentColor"
-                          strokeWidth="2"
-                          strokeLinecap="round"
-                          strokeLinejoin="round"
-                          className="text-primary"
-                        >
-                          <circle cx="12" cy="12" r="10"></circle>
-                          <path d="M12 8v4l3 3"></path>
-                        </svg>
+                        <Bell className="h-4 w-4 text-primary" />
                       </div>
                     </div>
                   </div>

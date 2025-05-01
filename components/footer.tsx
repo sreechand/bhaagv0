@@ -4,6 +4,7 @@ import type React from "react"
 
 import { motion } from "framer-motion"
 import { Instagram, Twitter, Facebook } from "lucide-react"
+import Logo from "@/components/ui/logo"
 
 export default function Footer() {
   return (
@@ -12,7 +13,7 @@ export default function Footer() {
         <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
           <div className="md:col-span-2">
             <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
-              <h3 className="text-4xl font-exo font-black text-primary mb-4">BHAAG</h3>
+              <Logo className="text-4xl mb-4" />
               <p className="text-gray-300 mb-6 font-barlow">
                 Your personal AI-powered running coach that evolves with you.
               </p>

@@ -5,6 +5,7 @@ import { motion, useScroll, useTransform } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { Menu, X } from "lucide-react"
 import Link from "next/link"
+import Logo from "@/components/ui/logo"
 
 interface NavbarProps {
   onLoginClick: () => void
@@ -69,7 +70,7 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
           transition={{ duration: 0.5 }}
         >
           <button onClick={() => scrollToSection("home")} className="flex items-center">
-            <span className="text-4xl font-exo font-black tracking-wider text-primary">BHAAG</span>
+            <Logo className="text-4xl" />
           </button>
         </motion.div>
 

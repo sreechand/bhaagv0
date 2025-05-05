@@ -1,24 +1,25 @@
-import type React from "react"
-import "./globals.css"
+import type { Metadata } from "next"
 import { Inter, Barlow, Exo_2 } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
+import "./globals.css"
 
 const inter = Inter({
   subsets: ["latin"],
   variable: "--font-inter",
+  preload: true,
+})
+
+const barlow = Barlow({
+  weight: ["400", "500", "600", "700"],
+  subsets: ["latin"],
+  variable: "--font-barlow",
+  preload: true,
 })
 
 const exo = Exo_2({
   subsets: ["latin"],
   variable: "--font-exo",
-  display: "swap",
-})
-
-const barlow = Barlow({
-  weight: ["500", "600", "700"],
-  subsets: ["latin"],
-  variable: "--font-barlow",
-  display: "swap",
+  preload: true,
 })
 
 export const metadata = {
@@ -33,12 +34,17 @@ export default function RootLayout({
   children: React.ReactNode
 }) {
   return (
-    <html lang="en" suppressHydrationWarning>
+    <html lang="en" suppressHydrationWarning className={`${inter.variable} ${barlow.variable} ${exo.variable}`}>
       <head>
         <link rel="icon" href="/favicon.ico" />
       </head>
-      <body className={`${inter.variable} ${barlow.variable} ${exo.variable}`}>
-        <ThemeProvider attribute="class" defaultTheme="dark" enableSystem={false} disableTransitionOnChange>
+      <body>
+        <ThemeProvider
+          attribute="class"
+          defaultTheme="dark"
+          enableSystem={false}
+          disableTransitionOnChange
+        >
           {children}
         </ThemeProvider>
       </body>

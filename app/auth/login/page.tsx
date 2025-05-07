@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
 import { Input } from "@/components/ui/input"
@@ -16,26 +16,62 @@ export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false)
   const router = useRouter()
 
-  const handleChange = (e: any) => {
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        if (session) {
+          router.replace('/dashboard')
+        }
+      } catch (error) {
+        console.error('Session check error:', error)
+      }
+    }
+    checkSession()
+  }, [router])
+
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const { name, value } = e.target
     setForm((f) => ({ ...f, [name]: value }))
   }
 
-  const handleSubmit = async (e: any) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError("")
-    const { error: loginError } = await supabase.auth.signInWithPassword({
-      email: form.email,
-      password: form.password,
-    })
-    if (loginError) {
-      setError(loginError.message)
+
+    try {
+      const { data, error: loginError } = await supabase.auth.signInWithPassword({
+        email: form.email,
+        password: form.password,
+      })
+
+      if (loginError) {
+        setError(loginError.message)
+        return
+      }
+
+      if (data?.user) {
+        // Get user profile data
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', data.user.id)
+          .single()
+
+        if (profile) {
+          localStorage.setItem('userProfile', JSON.stringify(profile))
+        }
+
+        // Force a hard navigation to dashboard
+        router.replace('/dashboard')
+      }
+    } catch (err) {
+      console.error('Login error:', err)
+      setError("An unexpected error occurred. Please try again.")
+    } finally {
       setLoading(false)
-      return
     }
-    setLoading(false)
-    router.push("/")
   }
 
   return (

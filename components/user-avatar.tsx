@@ -1,80 +1,72 @@
-import { User } from "@supabase/supabase-js"
+"use client"
+
+import { useState } from "react"
+import { useRouter } from "next/navigation"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
+import { Button } from "@/components/ui/button"
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
-import { useEffect, useState } from "react"
-import { supabase } from "@/lib/supabaseClient"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { LogOut, User, Settings } from "lucide-react"
 
-interface UserAvatarProps {
-  user: User
-  size?: "sm" | "md" | "lg" | "xl"
-  className?: string
-}
+export default function UserAvatar() {
+  const [isLoading, setIsLoading] = useState(false)
+  const router = useRouter()
+  const supabase = createClientComponentClient()
 
-const sizeClasses = {
-  sm: "h-8 w-8",
-  md: "h-10 w-10",
-  lg: "h-12 w-12",
-  xl: "h-24 w-24"
-}
-
-export default function UserAvatar({ user, size = "md", className = "" }: UserAvatarProps) {
-  const [avatarUrl, setAvatarUrl] = useState<string | null>(null)
-  const [loading, setLoading] = useState(true)
-
-  useEffect(() => {
-    async function getProfile() {
-      try {
-        const { data: profile, error } = await supabase
-          .from('profiles')
-          .select('avatar_url')
-          .eq('id', user.id)
-          .single()
-
-        if (error) {
-          console.error('Error fetching profile:', error)
-          return
-        }
-
-        if (profile?.avatar_url) {
-          setAvatarUrl(profile.avatar_url)
-        }
-      } catch (error) {
-        console.error('Error fetching avatar:', error)
-      } finally {
-        setLoading(false)
-      }
+  const handleLogout = async () => {
+    setIsLoading(true)
+    try {
+      await supabase.auth.signOut()
+      router.refresh()
+      router.push("/")
+    } catch (error) {
+      console.error("Error logging out:", error)
+    } finally {
+      setIsLoading(false)
     }
-
-    if (user?.id) {
-      getProfile()
-    }
-  }, [user])
-
-  // Get initials from user's email or name
-  const getInitials = () => {
-    const name = user.user_metadata?.name || user.email || ''
-    return name
-      .split(' ')
-      .map((part: string) => part[0])
-      .join('')
-      .toUpperCase()
-      .slice(0, 2)
   }
 
-  if (!user) return null
-
   return (
-    <Avatar className={`${sizeClasses[size]} ${className} ring-2 ring-primary/20`}>
-      <AvatarImage 
-        src={avatarUrl || ''} 
-        alt={user.user_metadata?.name || user.email || 'User'} 
-        className="object-cover"
-      />
-      <AvatarFallback 
-        className="bg-black/50 text-primary font-medium"
-        delayMs={loading ? 1500 : 0}
-      >
-        {loading ? '...' : getInitials()}
-      </AvatarFallback>
-    </Avatar>
+    <DropdownMenu>
+      <DropdownMenuTrigger asChild>
+        <Button variant="ghost" className="relative h-10 w-10 rounded-full">
+          <Avatar className="h-10 w-10">
+            <AvatarImage src="/avatars/default.png" alt="User avatar" />
+            <AvatarFallback>U</AvatarFallback>
+          </Avatar>
+        </Button>
+      </DropdownMenuTrigger>
+      <DropdownMenuContent className="w-56" align="end" forceMount>
+        <DropdownMenuLabel className="font-normal">
+          <div className="flex flex-col space-y-1">
+            <p className="text-sm font-medium leading-none">User Name</p>
+            <p className="text-xs leading-none text-muted-foreground">
+              user@example.com
+            </p>
+          </div>
+        </DropdownMenuLabel>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={() => router.push("/dashboard")}>
+          <User className="mr-2 h-4 w-4" />
+          <span>Dashboard</span>
+        </DropdownMenuItem>
+        <DropdownMenuItem onClick={() => router.push("/dashboard/settings")}>
+          <Settings className="mr-2 h-4 w-4" />
+          <span>Settings</span>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
+        <DropdownMenuItem onClick={handleLogout} disabled={isLoading}>
+          <LogOut className="mr-2 h-4 w-4" />
+          <span>{isLoading ? "Logging out..." : "Log out"}</span>
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
   )
 } 

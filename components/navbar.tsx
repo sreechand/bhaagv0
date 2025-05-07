@@ -6,6 +6,8 @@ import { Button } from "@/components/ui/button"
 import { Menu, X } from "lucide-react"
 import Link from "next/link"
 import Logo from "@/components/ui/logo"
+import UserAvatar from "@/components/user-avatar"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 interface NavbarProps {
   onLoginClick: () => void
@@ -13,44 +15,72 @@ interface NavbarProps {
 
 export default function Navbar({ onLoginClick }: NavbarProps) {
   const [isOpen, setIsOpen] = useState(false)
-  const [activeSection, setActiveSection] = useState("home")
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
   const { scrollY } = useScroll()
+  const backgroundColor = useTransform(
+    scrollY,
+    [0, 100],
+    ["rgba(0, 0, 0, 0)", "rgba(0, 0, 0, 0.8)"]
+  )
+  const backdropBlur = useTransform(
+    scrollY,
+    [0, 100],
+    ["blur(0px)", "blur(10px)"]
+  )
 
-  const backgroundColor = useTransform(scrollY, [0, 100], ["rgba(10, 10, 10, 0)", "rgba(10, 10, 10, 0.8)"])
-  const backdropBlur = useTransform(scrollY, [0, 100], ["blur(0px)", "blur(8px)"])
+  const [activeSection, setActiveSection] = useState("home")
+  const supabase = createClientComponentClient()
+
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setIsLoggedIn(!!session)
+    }
+
+    checkUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [supabase.auth])
 
   useEffect(() => {
     const handleScroll = () => {
-      const sections = document.querySelectorAll("section[id]")
-      const scrollPosition = window.scrollY + window.innerHeight / 4
+      const sections = ["home", "why-bhaag", "faq", "sample"]
+      const scrollPosition = window.scrollY + 100
 
-      let currentSection = "home"
-      sections.forEach((section) => {
-        const sectionTop = (section as HTMLElement).offsetTop - 100
-        const sectionHeight = (section as HTMLElement).offsetHeight
-        const sectionBottom = sectionTop + sectionHeight
-
-        if (scrollPosition >= sectionTop && scrollPosition < sectionBottom) {
-          currentSection = section.getAttribute("id") || ""
+      for (const section of sections) {
+        const element = document.getElementById(section)
+        if (element) {
+          const { offsetTop, offsetHeight } = element
+          if (
+            scrollPosition >= offsetTop &&
+            scrollPosition < offsetTop + offsetHeight
+          ) {
+            setActiveSection(section)
+            break
+          }
         }
-      })
-      setActiveSection(currentSection)
+      }
     }
 
     window.addEventListener("scroll", handleScroll)
-    handleScroll() // Call once on mount
     return () => window.removeEventListener("scroll", handleScroll)
   }, [])
 
   const scrollToSection = (sectionId: string) => {
-    const section = document.getElementById(sectionId)
-    if (section) {
-      section.scrollIntoView({ 
+    const element = document.getElementById(sectionId)
+    if (element) {
+      const offset = 80 // Height of the navbar
+      const elementPosition = element.getBoundingClientRect().top
+      const offsetPosition = elementPosition + window.pageYOffset - offset
+
+      window.scrollTo({
+        top: offsetPosition,
         behavior: "smooth",
-        block: "start"
       })
-      setActiveSection(sectionId)
-      setIsOpen(false)
     }
   }
 
@@ -100,9 +130,13 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
             onClick={() => scrollToSection("sample")}
           />
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-            <Link href="/auth/login">
-              <Button className="btn-primary">Login</Button>
-            </Link>
+            {isLoggedIn ? (
+              <UserAvatar />
+            ) : (
+              <Link href="/auth/login">
+                <Button variant="default">Login</Button>
+              </Link>
+            )}
           </motion.div>
         </motion.nav>
 
@@ -127,9 +161,16 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
             <MobileNavLink href="#why-bhaag" label="How it Works" onClick={() => scrollToSection("why-bhaag")} />
             <MobileNavLink href="#faq" label="FAQ" onClick={() => scrollToSection("faq")} />
             <MobileNavLink href="#sample" label="Try a Sample Plan" onClick={() => scrollToSection("sample")} />
-            <Link href="/auth/login">
-              <Button className="w-full btn-primary">Login</Button>
-            </Link>
+            {isLoggedIn ? (
+              <div className="flex items-center space-x-2">
+                <UserAvatar />
+                <span className="text-white">User Menu</span>
+              </div>
+            ) : (
+              <Link href="/auth/login">
+                <Button variant="default" className="w-full">Login</Button>
+              </Link>
+            )}
           </div>
         </motion.div>
       )}
@@ -141,7 +182,7 @@ interface NavLinkProps {
   href: string
   label: string
   active?: boolean
-  onClick: () => void
+  onClick?: () => void
 }
 
 function NavLink({ href, label, active, onClick }: NavLinkProps) {

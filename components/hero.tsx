@@ -7,6 +7,7 @@ import { ChevronDown } from "lucide-react"
 import Link from "next/link"
 import Logo from "@/components/ui/logo"
 import { Bell } from "lucide-react"
+import { createClientComponentClient } from "@supabase/auth-helpers-nextjs"
 
 interface HeroProps {
   onGetStartedClick: () => void
@@ -22,6 +23,8 @@ export default function Hero({ onGetStartedClick }: HeroProps) {
     calories: 0,
     heartRate: 70,
   })
+  const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const supabase = createClientComponentClient()
 
   // Animate the stats
   useEffect(() => {
@@ -96,6 +99,21 @@ export default function Hero({ onGetStartedClick }: HeroProps) {
     }
   }, [])
 
+  useEffect(() => {
+    const checkUser = async () => {
+      const { data: { session } } = await supabase.auth.getSession()
+      setIsLoggedIn(!!session)
+    }
+
+    checkUser()
+
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      setIsLoggedIn(!!session)
+    })
+
+    return () => subscription.unsubscribe()
+  }, [supabase.auth])
+
   const scrollToFeatures = () => {
     const featuresSection = document.getElementById("why-bhaag")
     if (featuresSection) {
@@ -154,9 +172,15 @@ export default function Hero({ onGetStartedClick }: HeroProps) {
               className="mb-16"
             >
               <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
-                <Button asChild className="btn-primary text-lg font-barlow">
-                  <Link href="/auth/signup">Get Started</Link>
-                </Button>
+                {isLoggedIn ? (
+                  <Button asChild className="btn-primary text-lg font-barlow">
+                    <Link href="/dashboard">Go to Dashboard</Link>
+                  </Button>
+                ) : (
+                  <Button asChild className="btn-primary text-lg font-barlow">
+                    <Link href="/auth/login">Get Started</Link>
+                  </Button>
+                )}
               </motion.div>
             </motion.div>
           </div>

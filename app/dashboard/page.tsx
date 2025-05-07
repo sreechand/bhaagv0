@@ -1,17 +1,78 @@
 "use client"
 
-import type React from "react"
-
-import { useEffect, useRef } from "react"
+import { useEffect, useRef, useState } from "react"
 import { motion, useScroll, useTransform } from "framer-motion"
 import Link from "next/link"
-import { ArrowRight, Award, Calendar, LineChartIcon as ChartLineUp, Clock, Dumbbell, Flame, Zap } from "lucide-react"
+import { ArrowRight, Award, Calendar, LineChartIcon as ChartLineUp, Clock, Dumbbell, Flame, Zap, ArrowLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
+import { useRouter } from "next/navigation"
+import { supabase } from "@/lib/supabaseClient"
 
-export default function DashboardHomePage() {
+export default function DashboardPage() {
   const { scrollYProgress } = useScroll()
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"])
   const canvasRef = useRef<HTMLCanvasElement>(null)
+  const [loading, setLoading] = useState(true)
+  const [userProfile, setUserProfile] = useState<any>(null)
+  const router = useRouter()
+
+  useEffect(() => {
+    const checkSession = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession()
+        
+        if (!session) {
+          router.replace('/auth/login')
+          return
+        }
+
+        // Get user profile from localStorage or fetch it
+        const storedProfile = localStorage.getItem('userProfile')
+        if (storedProfile) {
+          setUserProfile(JSON.parse(storedProfile))
+        } else {
+          const { data: profile } = await supabase
+            .from('profiles')
+            .select('*')
+            .eq('id', session.user.id)
+            .single()
+
+          if (profile) {
+            localStorage.setItem('userProfile', JSON.stringify(profile))
+            setUserProfile(profile)
+          }
+        }
+      } catch (error) {
+        console.error('Session check error:', error)
+        router.replace('/auth/login')
+      } finally {
+        setLoading(false)
+      }
+    }
+
+    checkSession()
+
+    // Set up auth state change listener
+    const { data: { subscription } } = supabase.auth.onAuthStateChange((_event, session) => {
+      if (!session) {
+        router.replace('/auth/login')
+      }
+    })
+
+    return () => {
+      subscription.unsubscribe()
+    }
+  }, [router])
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut()
+      localStorage.removeItem('userProfile')
+      router.replace('/')
+    } catch (error) {
+      console.error('Sign out error:', error)
+    }
+  }
 
   // Canvas background animation (similar to landing page)
   useEffect(() => {
@@ -59,6 +120,17 @@ export default function DashboardHomePage() {
     }
   }, [])
 
+  if (loading) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-primary mx-auto"></div>
+          <p className="mt-4">Loading...</p>
+        </div>
+      </div>
+    )
+  }
+
   return (
     <div className="min-h-screen">
       {/* Hero Section */}
@@ -71,7 +143,7 @@ export default function DashboardHomePage() {
         <div className="relative z-10 container mx-auto px-6 h-full flex flex-col justify-center">
           <motion.div initial={{ opacity: 0, y: 20 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.6 }}>
             <h1 className="text-5xl md:text-6xl font-exo font-black mb-4">
-              Welcome back, <span className="text-gradient">Runner</span>
+              Welcome back, <span className="text-gradient">{userProfile?.name || 'Runner'}</span>
             </h1>
             <p className="text-xl md:text-2xl text-gray-300 font-barlow mb-8">
               Every step counts. Let's keep pushing forward.
@@ -131,7 +203,7 @@ export default function DashboardHomePage() {
                 </div>
               </div>
 
-              <Button
+              <Button 
                 asChild
                 className="w-full bg-black/50 border border-primary/50 text-primary hover:bg-primary/10 group"
               >

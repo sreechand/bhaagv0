@@ -13,6 +13,7 @@ export interface Database {
         Row: {
           id: string
           created_at: string
+          avatar_url: string | null
           email: string
           name: string | null
           phone: string | null
@@ -20,6 +21,7 @@ export interface Database {
         Insert: {
           id: string
           created_at?: string
+          avatar_url?: string | null
           email: string
           name?: string | null
           phone?: string | null
@@ -27,10 +29,19 @@ export interface Database {
         Update: {
           id?: string
           created_at?: string
+          avatar_url?: string | null
           email?: string
           name?: string | null
           phone?: string | null
         }
+        Relationships: [
+          {
+            foreignKeyName: "profiles_id_fkey"
+            columns: ["id"]
+            referencedRelation: "users"
+            referencedColumns: ["id"]
+          }
+        ]
       }
     }
     Views: {
@@ -40,6 +51,9 @@ export interface Database {
       [_ in never]: never
     }
     Enums: {
+      [_ in never]: never
+    }
+    CompositeTypes: {
       [_ in never]: never
     }
   }

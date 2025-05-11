@@ -7,13 +7,17 @@ import { ArrowRight, Award, Calendar, LineChartIcon as ChartLineUp, Clock, Dumbb
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
+import Navbar from "@/components/navbar"
+import { Database } from "@/types/supabase"
+
+type Profile = Database['public']['Tables']['profiles']['Row']
 
 export default function DashboardPage() {
   const { scrollYProgress } = useScroll()
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"])
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [loading, setLoading] = useState(true)
-  const [userProfile, setUserProfile] = useState<any>(null)
+  const [userProfile, setUserProfile] = useState<Profile | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -31,15 +35,21 @@ export default function DashboardPage() {
         if (storedProfile) {
           setUserProfile(JSON.parse(storedProfile))
         } else {
-          const { data: profile } = await supabase
+          const { data: profile, error } = await supabase
             .from('profiles')
-            .select('*')
+            .select('id, created_at, email, name, phone')
             .eq('id', session.user.id)
             .single()
 
+          if (error) {
+            console.error('Error fetching profile:', error)
+            return
+          }
+
           if (profile) {
-            localStorage.setItem('userProfile', JSON.stringify(profile))
-            setUserProfile(profile)
+            const typedProfile = profile as Profile
+            localStorage.setItem('userProfile', JSON.stringify(typedProfile))
+            setUserProfile(typedProfile)
           }
         }
       } catch (error) {
@@ -133,6 +143,8 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-screen">
+      <Navbar onLoginClick={() => {}} />
+      
       {/* Hero Section */}
       <div className="relative h-[500px] overflow-hidden">
         <canvas ref={canvasRef} className="absolute inset-0 z-0 opacity-30 pointer-events-none" />

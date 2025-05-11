@@ -35,34 +35,27 @@ export default function UserAvatar({ onSignOut }: UserAvatarProps) {
       const { data: { session } } = await supabase.auth.getSession()
       
       if (session) {
-        // Get user profile from localStorage or fetch it
-        const storedProfile = localStorage.getItem('userProfile')
-        let profile: Profile | null = null
-        if (storedProfile) {
-          profile = JSON.parse(storedProfile)
-          setUserProfile(profile)
-        } else {
-          const { data, error } = await supabase
-            .from('profiles')
-            .select('*')
-            .eq('id', session.user.id)
-            .single()
-          if (error) {
-            console.error('Error fetching profile:', error)
-            return
-          }
-          if (data) {
-            profile = data as Profile
-            localStorage.setItem('userProfile', JSON.stringify(profile))
-            setUserProfile(profile)
-          }
+        // Always fetch latest profile from Supabase
+        const { data: profile, error } = await supabase
+          .from('profiles')
+          .select('*')
+          .eq('id', session.user.id as any)
+          .maybeSingle()
+        if (error || !profile) {
+          setUserProfile(null)
+          setAvatarUrl(null)
+          return
         }
+        setUserProfile(profile as Profile)
         // Use avatar_url from profile if present and non-empty
-        if (profile && profile.avatar_url && profile.avatar_url.trim() !== "") {
-          setAvatarUrl(profile.avatar_url)
+        if (profile.avatar_url && profile.avatar_url.trim() !== "") {
+          setAvatarUrl(`${profile.avatar_url}?t=${Date.now()}`)
         } else {
           setAvatarUrl(null)
         }
+      } else {
+        setUserProfile(null)
+        setAvatarUrl(null)
       }
     }
     fetchUserData()
@@ -83,7 +76,7 @@ export default function UserAvatar({ onSignOut }: UserAvatarProps) {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="relative h-10 w-10 rounded-full bg-black/50 border border-primary/50 hover:bg-primary/10 p-0 flex items-center justify-center"
+          className="relative h-10 w-10 rounded-full bg-black/50 border-[3 px] border-primary transition-all duration-200 p-0 flex items-center justify-center overflow-hidden shadow-none hover:shadow-[0_0_0_8px_rgba(0,255,213,0.25)]"
         >
           {avatarUrl ? (
             <Image
@@ -91,11 +84,12 @@ export default function UserAvatar({ onSignOut }: UserAvatarProps) {
               alt="User avatar"
               width={40}
               height={40}
-              className="rounded-full object-cover border-2 border-primary"
+              className="rounded-full object-cover aspect-square"
+              style={{ width: 40, height: 40 }}
               onError={() => setAvatarUrl(null)}
             />
           ) : (
-            <span className="flex items-center justify-center h-10 w-10 rounded-full bg-black/50 border-2 border-primary text-primary font-semibold text-lg select-none">
+            <span className="flex items-center justify-center h-10 w-10 rounded-full bg-black/50 border-[3.5px] border-primary text-primary font-semibold text-lg select-none">
               {getInitials(userProfile?.name ?? null)}
             </span>
           )}

@@ -17,6 +17,8 @@ export interface Database {
           email: string
           name: string | null
           phone: string | null
+          height: number | null
+          weight: number | null
         }
         Insert: {
           id: string
@@ -25,6 +27,8 @@ export interface Database {
           email: string
           name?: string | null
           phone?: string | null
+          height?: number | null
+          weight?: number | null
         }
         Update: {
           id?: string
@@ -33,6 +37,8 @@ export interface Database {
           email?: string
           name?: string | null
           phone?: string | null
+          height?: number | null
+          weight?: number | null
         }
         Relationships: [
           {

@@ -49,7 +49,7 @@ export default function UserAvatar({ onSignOut }: UserAvatarProps) {
         setUserProfile(profile as Profile)
         // Use avatar_url from profile if present and non-empty
         if (profile.avatar_url && profile.avatar_url.trim() !== "") {
-          setAvatarUrl(`${profile.avatar_url}?t=${Date.now()}`)
+          setAvatarUrl(profile.avatar_url)
         } else {
           setAvatarUrl(null)
         }
@@ -76,20 +76,24 @@ export default function UserAvatar({ onSignOut }: UserAvatarProps) {
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
-          className="relative h-10 w-10 rounded-full bg-black/50 border-[3 px] border-primary transition-all duration-200 p-0 flex items-center justify-center overflow-hidden shadow-none hover:shadow-[0_0_0_8px_rgba(0,255,213,0.25)]"
+          className="relative h-10 w-10 rounded-full bg-black/50 transition-all duration-200 p-0 flex items-center justify-center overflow-hidden shadow-none hover:shadow-[0_0_0_8px_rgba(0,255,213,0.25)]"
         >
           {avatarUrl ? (
-            <Image
-              src={avatarUrl}
-              alt="User avatar"
-              width={40}
-              height={40}
-              className="rounded-full object-cover aspect-square"
-              style={{ width: 40, height: 40 }}
-              onError={() => setAvatarUrl(null)}
-            />
+            <>
+              <Image
+                src={avatarUrl}
+                alt="User avatar"
+                width={40}
+                height={40}
+                className="rounded-full object-cover aspect-square"
+                style={{ width: 40, height: 40 }}
+                onError={() => setAvatarUrl(null)}
+                priority
+              />
+              <div className="absolute inset-0 rounded-full border-[3px] border-primary pointer-events-none" />
+            </>
           ) : (
-            <span className="flex items-center justify-center h-10 w-10 rounded-full bg-black/50 border-[3.5px] border-primary text-primary font-semibold text-lg select-none">
+            <span className="flex items-center justify-center h-10 w-10 rounded-full bg-black/50 border-[3px] border-primary text-primary font-semibold text-lg select-none">
               {getInitials(userProfile?.name ?? null)}
             </span>
           )}

@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion, useScroll, useTransform } from "framer-motion"
-import { AlertCircle, ArrowRight, RefreshCw } from "lucide-react"
+import { AlertCircle, ArrowRight, RefreshCw, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import OnboardingWizard from "@/components/plan/onboarding-wizard"
 import WeeklyPlan from "@/components/plan/weekly-plan"
@@ -42,7 +42,7 @@ export default function PlanPage() {
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', session.user.id as any)
+          .eq('id', session.user.id)
           .single()
 
         if (profileError) {
@@ -58,17 +58,18 @@ export default function PlanPage() {
         const { data: plan, error: planError } = await supabase
           .from('training_plans')
           .select('*')
-          .eq('user_id', session.user.id as any)
-          .eq('status', 'active' as any)
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
           .order('generated_at', { ascending: false })
           .limit(1)
           .single()
 
-        if (planError && planError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-          console.error('Error fetching plan:', planError)
-        }
-
-        if (plan) {
+        if (planError) {
+          if (planError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+            console.error('Error fetching plan:', planError)
+          }
+        } else if (plan) {
+          console.log('Fetched plan:', plan) // Add logging
           setCurrentPlan(plan as unknown as TrainingPlan)
         }
       } catch (error) {
@@ -89,40 +90,39 @@ export default function PlanPage() {
 
   const handleConfirmPlanAction = async () => {
     if (!currentPlan) return;
-    
-    // Update the plan status
-    const { error } = await supabase
-      .from('training_plans')
-      .update({ status: 'cancelled' } satisfies TrainingPlanUpdate)
-      .eq('id', currentPlan.id);
-
-    if (error) {
-      setShowConfirmModal(false);
-      setPendingAction(null);
-      return;
-    }
-
-    // Refetch the plan from Supabase to ensure UI is in sync
-    const { data: plan, error: planError } = await supabase
-      .from('training_plans')
-      .select('*')
-      .eq('user_id', userProfile?.id ?? '')
-      .eq('status', 'active')
-      .order('generated_at', { ascending: false })
-      .limit(1)
-      .single();
-
-    setShowConfirmModal(false);
-    setPendingAction(null);
-
-    if (planError || !plan) {
+    // Only cancel plan for 'new' action
+    if (pendingAction === 'new') {
+      const { error } = await (supabase
+        .from('training_plans')
+        .update({ status: 'cancelled' })
+        .eq('id', currentPlan.id) as any);
+      if (error) {
+        console.error('Error cancelling plan:', error);
+        setShowConfirmModal(false);
+        setPendingAction(null);
+        return;
+      }
       setCurrentPlan(null);
       setShowOnboarding(true);
-      return;
     }
+    setShowConfirmModal(false);
+    setPendingAction(null);
+  }
 
-    // Double type assertion to handle the error case
-    setCurrentPlan(plan as unknown as TrainingPlan);
+  const handleWizardClose = (newPlan: TrainingPlan | null) => {
+    setShowOnboarding(false)
+    if (newPlan) {
+      console.log('Setting new plan:', newPlan)
+      // Ensure plan_data is properly structured
+      const planData = {
+        ...newPlan,
+        plan_data: newPlan.plan_data || {
+          choices: [],
+          text: ''
+        }
+      }
+      setCurrentPlan(planData)
+    }
   }
 
   if (loading) {
@@ -168,13 +168,6 @@ export default function PlanPage() {
           <>
             <div className="flex flex-col md:flex-row gap-4 mb-8">
               <Button
-                variant="secondary"
-                className="flex-1"
-                onClick={() => handlePlanAction('restart')}
-              >
-                Restart Plan
-              </Button>
-              <Button
                 variant="destructive"
                 className="flex-1"
                 onClick={() => handlePlanAction('new')}
@@ -182,7 +175,10 @@ export default function PlanPage() {
                 New Plan
               </Button>
             </div>
-            <WeeklyPlan planData={currentPlan.plan_data} />
+            <WeeklyPlan 
+              planData={currentPlan.plan_data} 
+              planStartDate={(currentPlan.inputs_json as any)?.planStartDate || ''} 
+            />
           </>
         ) : (
           <div className="max-w-3xl mx-auto">
@@ -197,7 +193,6 @@ export default function PlanPage() {
                 Create a personalized training plan tailored to your goals and schedule.
               </p>
             </motion.div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
@@ -257,17 +252,22 @@ export default function PlanPage() {
       </div>
 
       {/* Onboarding Wizard Modal */}
-      {showOnboarding && <OnboardingWizard onClose={() => setShowOnboarding(false)} />}
+      {showOnboarding && (
+        <OnboardingWizard onClose={handleWizardClose} />
+      )}
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <ConfirmationModal
+          onConfirm={handleConfirmPlanAction}
+          onCancel={() => {
+            setShowConfirmModal(false)
+            setPendingAction(null)
+          }}
           title={pendingAction === 'restart' ? 'Restart Plan' : 'New Plan'}
           message="This will erase your current progress and start fresh. Are you sure you want to continue?"
           confirmText={pendingAction === 'restart' ? 'Confirm and Restart' : 'Confirm and Start New Plan'}
           cancelText="Cancel"
-          onConfirm={handleConfirmPlanAction}
-          onCancel={() => { setShowConfirmModal(false); setPendingAction(null) }}
         />
       )}
     </div>

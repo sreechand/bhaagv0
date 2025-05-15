@@ -317,6 +317,27 @@ export default function RunningProfileStep({ formData, updateFormData }: Running
             className="w-40 bg-black/30 border-white/20"
           />
         </div>
+
+        {/* Plan Start Date */}
+        <div className="space-y-4">
+          <Label className="text-lg font-barlow font-semibold">Plan Start Date</Label>
+          <Input
+            type="date"
+            value={formData.planStartDate || ''}
+            onChange={e => updateFormData({ planStartDate: e.target.value })}
+            className="w-60 bg-black/30 border-white/20"
+          />
+        </div>
+        {/* Race Date */}
+        <div className="space-y-4">
+          <Label className="text-lg font-barlow font-semibold">Race Date (optional)</Label>
+          <Input
+            type="date"
+            value={formData.raceDate || ''}
+            onChange={e => updateFormData({ raceDate: e.target.value })}
+            className="w-60 bg-black/30 border-white/20"
+          />
+        </div>
       </motion.div>
     </TooltipProvider>
   )

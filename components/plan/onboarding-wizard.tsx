@@ -23,6 +23,8 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
     recentRaceDistance: "",
     goalRaceTime: { hours: "", minutes: "", seconds: "" },
     goalRaceDistance: "",
+    weeklyMileage: "",
+    longestRun: "",
 
     // Strength Setup
     strengthLevel: "",
@@ -31,6 +33,8 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
     equipment: [] as string[],
     includeRecovery: false,
   })
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
   const totalSteps = 3
 
@@ -50,10 +54,33 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
     }
   }
 
-  const handleSubmit = () => {
-    console.log("Form submitted:", formData)
-    // In a real app, you would send this data to your backend
-    onClose()
+  const handleSubmit = async () => {
+    setLoading(true)
+    setErrorMsg(null)
+    // Map formData to API payload
+    const payload = {
+      proficiency: formData.runningLevel,
+      goal: formData.primaryGoal,
+      weeklyMileage: Number(formData.weeklyMileage),
+      preferredDays: formData.trainingDays,
+      longestRun: Number(formData.longestRun),
+    }
+    try {
+      const response = await fetch('/api/generatePlan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData?.error || 'Failed to generate plan')
+      }
+      window.location.reload()
+    } catch (error: any) {
+      setErrorMsg(error.message || 'Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -119,6 +146,10 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
           </div>
 
           <div className="p-6 border-t border-white/10 flex justify-between">
+            {/* Error message display */}
+            {errorMsg && (
+              <div className="mb-4 text-red-500 text-center font-barlow w-full">{errorMsg}</div>
+            )}
             <Button
               variant="outline"
               onClick={currentStep === 1 ? onClose : handleBack}
@@ -129,8 +160,13 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
             <Button
               onClick={currentStep === totalSteps ? handleSubmit : handleNext}
               className="btn-primary font-barlow"
+              disabled={loading}
             >
-              {currentStep === totalSteps ? "Generate Plan" : "Continue"}
+              {loading
+                ? "Generating..."
+                : currentStep === totalSteps
+                ? "Generate Plan"
+                : "Continue"}
             </Button>
           </div>
         </motion.div>

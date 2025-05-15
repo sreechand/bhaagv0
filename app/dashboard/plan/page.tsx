@@ -14,18 +14,8 @@ import Navbar from "@/components/navbar"
 import Logo from "@/components/ui/logo"
 
 type Profile = Database['public']['Tables']['profiles']['Row']
-
-interface TrainingPlan {
-  id: string
-  user_id: string
-  block_number: number
-  start_date: string
-  end_date: string
-  plan_data: any
-  status: 'active' | 'completed' | 'cancelled'
-  generated_at: string
-  inputs_json: any
-}
+type TrainingPlan = Database['public']['Tables']['training_plans']['Row']
+type TrainingPlanUpdate = Database['public']['Tables']['training_plans']['Update']
 
 export default function PlanPage() {
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -36,6 +26,7 @@ export default function PlanPage() {
   const { scrollYProgress } = useScroll()
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"])
   const router = useRouter()
+  const [pendingAction, setPendingAction] = useState<null | 'restart' | 'new'>(null)
 
   useEffect(() => {
     const checkSession = async () => {
@@ -91,27 +82,47 @@ export default function PlanPage() {
     checkSession()
   }, [router])
 
-  const handleRestartPlan = async () => {
-    if (!currentPlan) return
+  const handlePlanAction = (action: 'restart' | 'new') => {
+    setPendingAction(action)
+    setShowConfirmModal(true)
+  }
 
-    try {
-      // Update the current plan status to cancelled
-      const { error } = await supabase
-        .from('training_plans')
-        .update({ status: 'cancelled' })
-        .eq('id', currentPlan.id)
+  const handleConfirmPlanAction = async () => {
+    if (!currentPlan) return;
+    
+    // Update the plan status
+    const { error } = await supabase
+      .from('training_plans')
+      .update({ status: 'cancelled' } satisfies TrainingPlanUpdate)
+      .eq('id', currentPlan.id);
 
-      if (error) {
-        console.error('Error cancelling plan:', error)
-        return
-      }
-
-      // Refresh the page to show the onboarding wizard
-      setShowConfirmModal(false)
-      window.location.reload()
-    } catch (error) {
-      console.error('Error restarting plan:', error)
+    if (error) {
+      setShowConfirmModal(false);
+      setPendingAction(null);
+      return;
     }
+
+    // Refetch the plan from Supabase to ensure UI is in sync
+    const { data: plan, error: planError } = await supabase
+      .from('training_plans')
+      .select('*')
+      .eq('user_id', userProfile?.id ?? '')
+      .eq('status', 'active')
+      .order('generated_at', { ascending: false })
+      .limit(1)
+      .single();
+
+    setShowConfirmModal(false);
+    setPendingAction(null);
+
+    if (planError || !plan) {
+      setCurrentPlan(null);
+      setShowOnboarding(true);
+      return;
+    }
+
+    // Double type assertion to handle the error case
+    setCurrentPlan(plan as unknown as TrainingPlan);
   }
 
   if (loading) {
@@ -154,7 +165,25 @@ export default function PlanPage() {
 
       <div className="container mx-auto px-6 py-12 relative z-10">
         {currentPlan ? (
-          <WeeklyPlan />
+          <>
+            <div className="flex flex-col md:flex-row gap-4 mb-8">
+              <Button
+                variant="secondary"
+                className="flex-1"
+                onClick={() => handlePlanAction('restart')}
+              >
+                Restart Plan
+              </Button>
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={() => handlePlanAction('new')}
+              >
+                New Plan
+              </Button>
+            </div>
+            <WeeklyPlan planData={currentPlan.plan_data} />
+          </>
         ) : (
           <div className="max-w-3xl mx-auto">
             <motion.div
@@ -233,12 +262,12 @@ export default function PlanPage() {
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <ConfirmationModal
-          title="Restart Plan"
+          title={pendingAction === 'restart' ? 'Restart Plan' : 'New Plan'}
           message="This will erase your current progress and start fresh. Are you sure you want to continue?"
-          confirmText="Confirm and Restart"
+          confirmText={pendingAction === 'restart' ? 'Confirm and Restart' : 'Confirm and Start New Plan'}
           cancelText="Cancel"
-          onConfirm={handleRestartPlan}
-          onCancel={() => setShowConfirmModal(false)}
+          onConfirm={handleConfirmPlanAction}
+          onCancel={() => { setShowConfirmModal(false); setPendingAction(null) }}
         />
       )}
     </div>

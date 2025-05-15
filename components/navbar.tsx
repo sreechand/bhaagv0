@@ -96,27 +96,27 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
 
   useEffect(() => {
     if (!isDashboard) {
-      const handleScroll = () => {
-        const sections = ["home", "why-bhaag", "faq", "sample"]
-        const scrollPosition = window.scrollY + 100
+    const handleScroll = () => {
+      const sections = ["home", "why-bhaag", "faq", "sample"]
+      const scrollPosition = window.scrollY + 100
 
-        for (const section of sections) {
-          const element = document.getElementById(section)
-          if (element) {
-            const { offsetTop, offsetHeight } = element
-            if (
-              scrollPosition >= offsetTop &&
-              scrollPosition < offsetTop + offsetHeight
-            ) {
-              setActiveSection(section)
-              break
-            }
+      for (const section of sections) {
+        const element = document.getElementById(section)
+        if (element) {
+          const { offsetTop, offsetHeight } = element
+          if (
+            scrollPosition >= offsetTop &&
+            scrollPosition < offsetTop + offsetHeight
+          ) {
+            setActiveSection(section)
+            break
           }
         }
       }
+    }
 
-      window.addEventListener("scroll", handleScroll)
-      return () => window.removeEventListener("scroll", handleScroll)
+    window.addEventListener("scroll", handleScroll)
+    return () => window.removeEventListener("scroll", handleScroll)
     }
   }, [isDashboard])
 
@@ -163,24 +163,24 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
         >
           {!isDashboard && (
             <>
-              <NavLink
-                href="#why-bhaag"
-                label="How it Works"
-                active={activeSection === "why-bhaag"}
-                onClick={() => scrollToSection("why-bhaag")}
-              />
-              <NavLink 
-                href="#faq" 
-                label="FAQ" 
-                active={activeSection === "faq"} 
-                onClick={() => scrollToSection("faq")} 
-              />
-              <NavLink
-                href="#sample"
-                label="Try a Sample Plan"
-                active={activeSection === "sample"}
-                onClick={() => scrollToSection("sample")}
-              />
+          <NavLink
+            href="#why-bhaag"
+            label="How it Works"
+            active={activeSection === "why-bhaag"}
+            onClick={() => scrollToSection("why-bhaag")}
+          />
+          <NavLink 
+            href="#faq" 
+            label="FAQ" 
+            active={activeSection === "faq"} 
+            onClick={() => scrollToSection("faq")} 
+          />
+          <NavLink
+            href="#sample"
+            label="Try a Sample Plan"
+            active={activeSection === "sample"}
+            onClick={() => scrollToSection("sample")}
+          />
             </>
           )}
           <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
@@ -214,9 +214,9 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
           <div className="container mx-auto flex flex-col space-y-4 px-6">
             {!isDashboard && (
               <>
-                <MobileNavLink href="#why-bhaag" label="How it Works" onClick={() => scrollToSection("why-bhaag")} />
-                <MobileNavLink href="#faq" label="FAQ" onClick={() => scrollToSection("faq")} />
-                <MobileNavLink href="#sample" label="Try a Sample Plan" onClick={() => scrollToSection("sample")} />
+            <MobileNavLink href="#why-bhaag" label="How it Works" onClick={() => scrollToSection("why-bhaag")} />
+            <MobileNavLink href="#faq" label="FAQ" onClick={() => scrollToSection("faq")} />
+            <MobileNavLink href="#sample" label="Try a Sample Plan" onClick={() => scrollToSection("sample")} />
               </>
             )}
             {isLoggedIn ? (

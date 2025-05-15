@@ -291,6 +291,53 @@ export default function RunningProfileStep({ formData, updateFormData }: Running
             </div>
           </div>
         </div>
+
+        {/* Weekly Mileage */}
+        <div className="space-y-4">
+          <Label className="text-lg font-barlow font-semibold">Weekly Mileage (km)</Label>
+          <Input
+            type="number"
+            min="0"
+            placeholder="Enter your average weekly mileage"
+            value={formData.weeklyMileage}
+            onChange={e => updateFormData({ weeklyMileage: e.target.value })}
+            className="w-40 bg-black/30 border-white/20"
+          />
+        </div>
+
+        {/* Longest Run */}
+        <div className="space-y-4">
+          <Label className="text-lg font-barlow font-semibold">Longest Recent Run (km)</Label>
+          <Input
+            type="number"
+            min="0"
+            placeholder="Enter your longest recent run"
+            value={formData.longestRun}
+            onChange={e => updateFormData({ longestRun: e.target.value })}
+            className="w-40 bg-black/30 border-white/20"
+          />
+        </div>
+
+        {/* Plan Start Date */}
+        <div className="space-y-4">
+          <Label className="text-lg font-barlow font-semibold">Plan Start Date</Label>
+          <Input
+            type="date"
+            value={formData.planStartDate || ''}
+            onChange={e => updateFormData({ planStartDate: e.target.value })}
+            className="w-60 bg-black/30 border-white/20"
+          />
+        </div>
+        {/* Race Date */}
+        <div className="space-y-4">
+          <Label className="text-lg font-barlow font-semibold">Race Date (optional)</Label>
+          <Input
+            type="date"
+            value={formData.raceDate || ''}
+            onChange={e => updateFormData({ raceDate: e.target.value })}
+            className="w-60 bg-black/30 border-white/20"
+          />
+        </div>
       </motion.div>
     </TooltipProvider>
   )

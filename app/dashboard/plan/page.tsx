@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react"
 import { motion, useScroll, useTransform } from "framer-motion"
-import { AlertCircle, ArrowRight, RefreshCw } from "lucide-react"
+import { AlertCircle, ArrowRight, RefreshCw, Zap } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import OnboardingWizard from "@/components/plan/onboarding-wizard"
 import WeeklyPlan from "@/components/plan/weekly-plan"
@@ -14,18 +14,8 @@ import Navbar from "@/components/navbar"
 import Logo from "@/components/ui/logo"
 
 type Profile = Database['public']['Tables']['profiles']['Row']
-
-interface TrainingPlan {
-  id: string
-  user_id: string
-  block_number: number
-  start_date: string
-  end_date: string
-  plan_data: any
-  status: 'active' | 'completed' | 'cancelled'
-  generated_at: string
-  inputs_json: any
-}
+type TrainingPlan = Database['public']['Tables']['training_plans']['Row']
+type TrainingPlanUpdate = Database['public']['Tables']['training_plans']['Update']
 
 export default function PlanPage() {
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -36,6 +26,7 @@ export default function PlanPage() {
   const { scrollYProgress } = useScroll()
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"])
   const router = useRouter()
+  const [pendingAction, setPendingAction] = useState<null | 'restart' | 'new'>(null)
 
   useEffect(() => {
     const checkSession = async () => {
@@ -51,7 +42,7 @@ export default function PlanPage() {
         const { data: profile, error: profileError } = await supabase
           .from('profiles')
           .select('*')
-          .eq('id', session.user.id as any)
+          .eq('id', session.user.id)
           .single()
 
         if (profileError) {
@@ -67,17 +58,18 @@ export default function PlanPage() {
         const { data: plan, error: planError } = await supabase
           .from('training_plans')
           .select('*')
-          .eq('user_id', session.user.id as any)
-          .eq('status', 'active' as any)
+          .eq('user_id', session.user.id)
+          .eq('status', 'active')
           .order('generated_at', { ascending: false })
           .limit(1)
           .single()
 
-        if (planError && planError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-          console.error('Error fetching plan:', planError)
-        }
-
-        if (plan) {
+        if (planError) {
+          if (planError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
+            console.error('Error fetching plan:', planError)
+          }
+        } else if (plan) {
+          console.log('Fetched plan:', plan) // Add logging
           setCurrentPlan(plan as unknown as TrainingPlan)
         }
       } catch (error) {
@@ -91,26 +83,45 @@ export default function PlanPage() {
     checkSession()
   }, [router])
 
-  const handleRestartPlan = async () => {
-    if (!currentPlan) return
+  const handlePlanAction = (action: 'restart' | 'new') => {
+    setPendingAction(action)
+    setShowConfirmModal(true)
+  }
 
-    try {
-      // Update the current plan status to cancelled
-      const { error } = await supabase
+  const handleConfirmPlanAction = async () => {
+    if (!currentPlan) return;
+    // Only cancel plan for 'new' action
+    if (pendingAction === 'new') {
+      const { error } = await (supabase
         .from('training_plans')
         .update({ status: 'cancelled' })
-        .eq('id', currentPlan.id)
-
+        .eq('id', currentPlan.id) as any);
       if (error) {
-        console.error('Error cancelling plan:', error)
-        return
+        console.error('Error cancelling plan:', error);
+        setShowConfirmModal(false);
+        setPendingAction(null);
+        return;
       }
+      setCurrentPlan(null);
+      setShowOnboarding(true);
+    }
+    setShowConfirmModal(false);
+    setPendingAction(null);
+  }
 
-      // Refresh the page to show the onboarding wizard
-      setShowConfirmModal(false)
-      window.location.reload()
-    } catch (error) {
-      console.error('Error restarting plan:', error)
+  const handleWizardClose = (newPlan: TrainingPlan | null) => {
+    setShowOnboarding(false)
+    if (newPlan) {
+      console.log('Setting new plan:', newPlan)
+      // Ensure plan_data is properly structured
+      const planData = {
+        ...newPlan,
+        plan_data: newPlan.plan_data || {
+          choices: [],
+          text: ''
+        }
+      }
+      setCurrentPlan(planData)
     }
   }
 
@@ -154,7 +165,21 @@ export default function PlanPage() {
 
       <div className="container mx-auto px-6 py-12 relative z-10">
         {currentPlan ? (
-          <WeeklyPlan />
+          <>
+            <div className="flex flex-col md:flex-row gap-4 mb-8">
+              <Button
+                variant="destructive"
+                className="flex-1"
+                onClick={() => handlePlanAction('new')}
+              >
+                New Plan
+              </Button>
+            </div>
+            <WeeklyPlan 
+              planData={currentPlan.plan_data} 
+              planStartDate={(currentPlan.inputs_json as any)?.planStartDate || ''} 
+            />
+          </>
         ) : (
           <div className="max-w-3xl mx-auto">
             <motion.div
@@ -168,7 +193,6 @@ export default function PlanPage() {
                 Create a personalized training plan tailored to your goals and schedule.
               </p>
             </motion.div>
-
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
               <motion.div
                 initial={{ opacity: 0, y: 30 }}
@@ -228,17 +252,22 @@ export default function PlanPage() {
       </div>
 
       {/* Onboarding Wizard Modal */}
-      {showOnboarding && <OnboardingWizard onClose={() => setShowOnboarding(false)} />}
+      {showOnboarding && (
+        <OnboardingWizard onClose={handleWizardClose} />
+      )}
 
       {/* Confirmation Modal */}
       {showConfirmModal && (
         <ConfirmationModal
-          title="Restart Plan"
+          onConfirm={handleConfirmPlanAction}
+          onCancel={() => {
+            setShowConfirmModal(false)
+            setPendingAction(null)
+          }}
+          title={pendingAction === 'restart' ? 'Restart Plan' : 'New Plan'}
           message="This will erase your current progress and start fresh. Are you sure you want to continue?"
-          confirmText="Confirm and Restart"
+          confirmText={pendingAction === 'restart' ? 'Confirm and Restart' : 'Confirm and Start New Plan'}
           cancelText="Cancel"
-          onConfirm={handleRestartPlan}
-          onCancel={() => setShowConfirmModal(false)}
         />
       )}
     </div>

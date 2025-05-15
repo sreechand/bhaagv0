@@ -6,10 +6,9 @@ import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 import RunningProfileStep from "./wizard-steps/running-profile-step"
 import StrengthSetupStep from "./wizard-steps/strength-setup-step"
-import PlanPreviewStep from "./wizard-steps/plan-preview-step"
 
 interface OnboardingWizardProps {
-  onClose: () => void
+  onClose: (plan: any) => void
 }
 
 export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
@@ -23,7 +22,10 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
     recentRaceDistance: "",
     goalRaceTime: { hours: "", minutes: "", seconds: "" },
     goalRaceDistance: "",
-
+    weeklyMileage: "",
+    longestRun: "",
+    planStartDate: "",
+    raceDate: "",
     // Strength Setup
     strengthLevel: "",
     trainingEnvironment: "",
@@ -31,8 +33,10 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
     equipment: [] as string[],
     includeRecovery: false,
   })
+  const [errorMsg, setErrorMsg] = useState<string | null>(null)
+  const [loading, setLoading] = useState(false)
 
-  const totalSteps = 3
+  const totalSteps = 2
 
   const updateFormData = (data: Partial<typeof formData>) => {
     setFormData((prev) => ({ ...prev, ...data }))
@@ -50,10 +54,42 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
     }
   }
 
-  const handleSubmit = () => {
-    console.log("Form submitted:", formData)
-    // In a real app, you would send this data to your backend
-    onClose()
+  const handleSubmit = async () => {
+    setLoading(true)
+    setErrorMsg(null)
+    // Map formData to API payload
+    const payload = {
+      proficiency: formData.runningLevel,
+      goal: formData.primaryGoal,
+      weeklyMileage: Number(formData.weeklyMileage),
+      preferredDays: formData.trainingDays,
+      longestRun: Number(formData.longestRun),
+      planStartDate: formData.planStartDate,
+      raceDate: formData.raceDate,
+    }
+    try {
+      const response = await fetch('/api/generatePlan', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload),
+      })
+      if (!response.ok) {
+        const errorData = await response.json().catch(() => ({}))
+        throw new Error(errorData?.error || 'Failed to generate plan')
+      }
+      const data = await response.json()
+      console.log('Generated plan data:', data)
+      if (!data.plan) {
+        throw new Error('No plan data received from server')
+      }
+      // Close the wizard and let the parent component handle the plan update
+      onClose(data.plan)
+    } catch (error: any) {
+      console.error('Plan generation error:', error)
+      setErrorMsg(error.message || 'Something went wrong. Please try again.')
+    } finally {
+      setLoading(false)
+    }
   }
 
   return (
@@ -114,11 +150,14 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
                   runDays={formData.trainingDays}
                 />
               )}
-              {currentStep === 3 && <PlanPreviewStep key="step3" formData={formData} />}
             </AnimatePresence>
           </div>
 
           <div className="p-6 border-t border-white/10 flex justify-between">
+            {/* Error message display */}
+            {errorMsg && (
+              <div className="mb-4 text-red-500 text-center font-barlow w-full">{errorMsg}</div>
+            )}
             <Button
               variant="outline"
               onClick={currentStep === 1 ? onClose : handleBack}
@@ -129,8 +168,13 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
             <Button
               onClick={currentStep === totalSteps ? handleSubmit : handleNext}
               className="btn-primary font-barlow"
+              disabled={loading}
             >
-              {currentStep === totalSteps ? "Generate Plan" : "Continue"}
+              {loading
+                ? "Generating..."
+                : currentStep === totalSteps
+                ? "Generate Plan"
+                : "Continue"}
             </Button>
           </div>
         </motion.div>

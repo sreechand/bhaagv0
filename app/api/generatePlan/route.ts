@@ -149,11 +149,38 @@ export async function POST(req: NextRequest) {
     const data = await openaiRes.json();
     const text = data.choices?.[0]?.message?.content || '';
 
-    // Insert into Supabase
-    const today = new Date();
-    const start_date = today.toISOString().slice(0, 10);
-    const end_date = new Date(today.getTime() + 28 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    // Cancel any existing active plan for this user
+    console.log('Attempting to cancel active plans for user:', session.user.id);
+    const { data: cancelData, error: cancelError } = await supabase
+      .from('training_plans')
+      .update({ status: 'cancelled' })
+      .eq('user_id', session.user.id)
+      .eq('status', 'active')
+      .select();
+    if (cancelError) {
+      console.error('Supabase cancel error:', cancelError.message);
+    }
+    if (!cancelData || cancelData.length === 0) {
+      console.warn('No active plans were cancelled for user:', session.user.id);
+    } else {
+      console.log(`Cancelled ${cancelData.length} plan(s) for user:`, session.user.id);
+    }
 
+    // Use planStartDate and raceDate from the request body
+    let start_date = body.planStartDate;
+    let end_date = body.raceDate;
+    if (!start_date) {
+      // fallback to today if not provided
+      const today = new Date();
+      start_date = today.toISOString().slice(0, 10);
+    }
+    if (!end_date) {
+      // fallback to 4 weeks from start_date if raceDate not provided
+      const start = new Date(start_date);
+      end_date = new Date(start.getTime() + 28 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
+    }
+
+    // Insert into Supabase
     const { data: insertData, error: insertError } = await supabase
       .from('training_plans')
       .insert([{
@@ -169,11 +196,26 @@ export async function POST(req: NextRequest) {
       .select()
       .single();
 
+    console.log('Inserted plan:', insertData, insertError);
+
     if (insertError) {
       return NextResponse.json({ error: 'Supabase insert error', details: insertError.message }, { status: 500 });
     }
 
-    return NextResponse.json({ text, plan: insertData });
+    if (!insertData) {
+      return NextResponse.json({ error: 'No plan data returned from insert' }, { status: 500 });
+    }
+
+    // Ensure the plan data is properly structured
+    const planData = {
+      ...insertData,
+      plan_data: {
+        choices: data.choices,
+        text: text
+      }
+    };
+
+    return NextResponse.json({ text, plan: planData });
   } catch (err) {
     return NextResponse.json({ error: 'Server error', details: String(err) }, { status: 500 });
   }

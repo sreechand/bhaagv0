@@ -57,8 +57,9 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
   const handleSubmit = async () => {
     setLoading(true)
     setErrorMsg(null)
-    // Map formData to API payload
+    // Map formData to API payload for hybrid plan
     const payload = {
+      // Running
       proficiency: formData.runningLevel,
       goal: formData.primaryGoal,
       weeklyMileage: Number(formData.weeklyMileage),
@@ -66,6 +67,20 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
       longestRun: Number(formData.longestRun),
       planStartDate: formData.planStartDate,
       raceDate: formData.raceDate,
+      recentRace: formData.recentRaceDistance && (formData.recentRaceTime.hours || formData.recentRaceTime.minutes || formData.recentRaceTime.seconds)
+        ? `${formData.recentRaceDistance} ${formData.recentRaceTime.hours || '00'}:${formData.recentRaceTime.minutes || '00'}:${formData.recentRaceTime.seconds || '00'}`
+        : '',
+      goalTime: formData.goalRaceDistance && (formData.goalRaceTime.hours || formData.goalRaceTime.minutes || formData.goalRaceTime.seconds)
+        ? `${formData.goalRaceDistance} ${formData.goalRaceTime.hours || '00'}:${formData.goalRaceTime.minutes || '00'}:${formData.goalRaceTime.seconds || '00'}`
+        : '',
+      paceZones: formData.paceZones || '',
+      longRunDay: formData.longRunDay || '',
+      // Strength
+      strengthLevel: formData.strengthLevel,
+      strengthEnvironment: formData.trainingEnvironment,
+      strengthDays: formData.strengthDays,
+      availableEquipment: formData.equipment,
+      includeRecovery: formData.includeRecovery,
     }
     try {
       const response = await fetch('/api/generatePlan', {

@@ -177,18 +177,10 @@ export default function PlanPage() {
       <div className="container mx-auto px-6 py-12 relative z-10">
         {currentPlan ? (
           <>
-            <div className="flex flex-col md:flex-row gap-4 mb-8">
-              <Button
-                variant="destructive"
-                className="flex-1"
-                onClick={() => handlePlanAction('new')}
-              >
-                New Plan
-              </Button>
-            </div>
             <WeeklyPlan 
               planData={currentPlan.plan_data} 
               planStartDate={(currentPlan.inputs_json as any)?.planStartDate || ''} 
+              onNewPlan={() => handlePlanAction('new')}
             />
           </>
         ) : (

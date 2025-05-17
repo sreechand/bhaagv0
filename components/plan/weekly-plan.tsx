@@ -8,44 +8,68 @@ import { Button } from "@/components/ui/button"
 import { addDays, format } from 'date-fns';
 
 function parseWeeklyPlan(markdown: string) {
-  const weekBlocks = markdown.split(/#### Week /).slice(1);
-  const weeks = weekBlocks.map((block) => {
-    const [weekHeader, ...rest] = block.split('\n');
-    const weekNum = weekHeader.match(/^(\d+)/)?.[1] || '';
-    const totalMileage = block.match(/Total Mileage:\*\* ([0-9]+) miles/)?.[1] || '';
-    const tableMatch = block.match(/\| Day.*\|([\s\S]*?)\n\n/);
-    const tableRows = tableMatch
-      ? tableMatch[1]
-          .split('\n')
-          .map((row) => row.trim())
-          .filter((row) => row && !row.startsWith('|---'))
-          .map((row) => {
-            const cols = row.split('|').map((c) => c.trim());
-            return {
-              day: cols[1],
-              type: cols[2],
-              desc: cols[3],
-            };
-          })
-      : [];
-    return {
-      weekNum,
-      totalMileage,
-      workouts: tableRows,
-    };
-  });
+  if (!markdown) {
+    console.error('No markdown content provided');
+    return { weeks: [], tips: [] };
+  }
 
-  // Extract weekly tips
-  const tipsBlock = markdown.split('### Weekly Tips')[1] || '';
-  const tips = tipsBlock
-    .split('\n- ')
-    .slice(1)
-    .map((tip) => {
-      const [week, ...rest] = tip.split(':');
-      return { week: week.replace(/\*\*/g, '').trim(), tip: rest.join(':').trim() };
-    });
+  try {
+    // Split by week headers and remove any empty blocks
+    const weekBlocks = markdown.split(/#### Week /).filter(block => block.trim());
+    
+    // Only keep week blocks that have a valid week number and at least one workout row
+    const weeks = weekBlocks
+      .map((block) => {
+        // Extract week number
+        const weekNum = block.match(/^(\d+)/)?.[1] || '';
+        // Extract total mileage
+        const totalMileage = block.match(/Total Mileage:\*\* ([0-9.]+) (?:miles|km)/i)?.[1] || '';
+        // Extract table content
+        const tableMatch = block.match(/\| Day.*\|([\s\S]*?)(?=\n\n|$)/);
+        const tableRows = tableMatch
+          ? tableMatch[1]
+              .split('\n')
+              .map((row) => row.trim())
+              .filter((row) => row && !row.startsWith('|---'))
+              .map((row) => {
+                const cols = row.split('|').map((c) => c.trim());
+                return {
+                  day: cols[1] || '',
+                  type: cols[2] || '',
+                  desc: cols[3] || '',
+                };
+              })
+          : [];
+        // Only return week if it has a valid week number and at least one workout
+        if (weekNum && tableRows.length > 0) {
+          return {
+            weekNum,
+            totalMileage,
+            workouts: tableRows,
+          };
+        }
+        return null;
+      })
+      .filter(Boolean); // Remove nulls
 
-  return { weeks, tips };
+    // Extract weekly tips
+    const tipsBlock = markdown.split('### Weekly Tips')[1] || '';
+    const tips = tipsBlock
+      .split('\n- ')
+      .slice(1)
+      .map((tip) => {
+        const [week, ...rest] = tip.split(':');
+        return {
+          week: week.replace(/\*\*/g, '').trim(),
+          tip: rest.join(':').trim()
+        };
+      });
+
+    return { weeks, tips };
+  } catch (error) {
+    console.error('Error parsing weekly plan:', error);
+    return { weeks: [], tips: [] };
+  }
 }
 
 const DAYS_ORDER = [
@@ -65,12 +89,28 @@ function getWorkoutColor(type: string, desc: string) {
 }
 
 export default function WeeklyPlan({ planData, planStartDate }: { planData: any, planStartDate: string }) {
-  const markdown = planData?.choices?.[0]?.message?.content || "";
+  // Ensure we have valid data
+  const markdown = planData?.choices?.[0]?.message?.content || planData?.text || "";
   const { weeks, tips } = parseWeeklyPlan(markdown);
   const [currentWeek, setCurrentWeek] = React.useState(0);
 
+  // Clamp currentWeek to valid range
+  React.useEffect(() => {
+    setCurrentWeek(0);
+  }, [markdown]);
+
+  React.useEffect(() => {
+    if (currentWeek < 0) setCurrentWeek(0);
+    if (currentWeek > weeks.length - 1) setCurrentWeek(weeks.length - 1);
+  }, [currentWeek, weeks.length]);
+
   if (!weeks.length) {
-    return <div className="text-center text-gray-400">No plan data available.</div>;
+    return (
+      <div className="text-center p-8">
+        <div className="text-gray-400 mb-4">No plan data available.</div>
+        <div className="text-sm text-gray-500">Please try generating a new plan.</div>
+      </div>
+    );
   }
 
   // Calculate the start date for the current week
@@ -79,7 +119,7 @@ export default function WeeklyPlan({ planData, planStartDate }: { planData: any,
 
   // Group workouts by day for the current week
   const dayMap: Record<string, { type: string; desc: string }[]> = {};
-  weeks[currentWeek].workouts.forEach((w) => {
+  weeks[currentWeek]?.workouts?.forEach((w) => {
     if (!dayMap[w.day]) dayMap[w.day] = [];
     dayMap[w.day].push({ type: w.type, desc: w.desc });
   });
@@ -112,7 +152,7 @@ export default function WeeklyPlan({ planData, planStartDate }: { planData: any,
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="font-barlow px-2">
-            Week {weeks[currentWeek].weekNum} of {weeks.length}
+            Week {currentWeek + 1} of {weeks.length}
           </span>
           <Button
             variant="outline"
@@ -127,9 +167,9 @@ export default function WeeklyPlan({ planData, planStartDate }: { planData: any,
       </motion.div>
       {/* Weekly Summary */}
       <div className="bg-black/30 rounded-lg p-4 border border-white/10 mb-6">
-        <h3 className="text-xl font-exo font-bold mb-2">Week {weeks[currentWeek].weekNum} Summary</h3>
-        <div className="text-gray-400 mb-2">Total Distance: <span className="font-bold">{weeks[currentWeek].totalMileage} km</span></div>
-        {tips[currentWeek] && (
+        <h3 className="text-xl font-exo font-bold mb-2">Week {weeks[currentWeek]?.weekNum || (currentWeek + 1)} Summary</h3>
+        <div className="text-gray-400 mb-2">Total Distance: <span className="font-bold">{weeks[currentWeek]?.totalMileage || ''} km</span></div>
+        {tips[currentWeek] && tips[currentWeek]?.week && tips[currentWeek]?.tip && (
           <div className="text-sm text-primary mt-2">
             <span className="font-bold">{tips[currentWeek].week}:</span> {tips[currentWeek].tip}
           </div>

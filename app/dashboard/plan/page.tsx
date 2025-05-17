@@ -33,7 +33,7 @@ export default function PlanPage() {
       try {
         const { data: { session } } = await supabase.auth.getSession()
         
-        if (!session) {
+        if (!session || !session.user.id) {
           router.replace('/auth/login')
           return
         }
@@ -92,10 +92,11 @@ export default function PlanPage() {
     if (!currentPlan) return;
     // Only cancel plan for 'new' action
     if (pendingAction === 'new') {
+      if (!currentPlan?.id) throw new Error('Current plan ID is null');
       const { error } = await (supabase
         .from('training_plans')
-        .update({ status: 'cancelled' })
-        .eq('id', currentPlan.id) as any);
+        .update({ status: 'cancelled' } as TrainingPlanUpdate)
+        .eq('id', currentPlan.id));
       if (error) {
         console.error('Error cancelling plan:', error);
         setShowConfirmModal(false);
@@ -116,10 +117,20 @@ export default function PlanPage() {
       // Ensure plan_data is properly structured
       const planData = {
         ...newPlan,
-        plan_data: newPlan.plan_data || {
-          choices: [],
-          text: ''
-        }
+        plan_data: typeof newPlan.plan_data === 'object' && newPlan.plan_data !== null
+          ? newPlan.plan_data
+          : {
+              choices: [{
+                message: {
+                  content: typeof newPlan.plan_data === 'object' && newPlan.plan_data !== null
+                    ? (newPlan.plan_data as any).text || ''
+                    : ''
+                }
+              }],
+              text: typeof newPlan.plan_data === 'object' && newPlan.plan_data !== null
+                ? (newPlan.plan_data as any).text || ''
+                : ''
+            }
       }
       setCurrentPlan(planData)
     }
@@ -181,72 +192,28 @@ export default function PlanPage() {
             />
           </>
         ) : (
-          <div className="max-w-3xl mx-auto">
-            <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
-              className="text-center mb-12"
+          <div className="flex flex-col items-center justify-center min-h-[60vh] relative w-full">
+            <h1 className="text-4xl md:text-5xl font-exo font-black mb-4 text-center">
+              HOW WOULD YOU LIKE TO BEGIN?
+            </h1>
+            <p className="text-xl text-gray-300 font-barlow mb-8 text-center max-w-xl">
+              Create a personalized training plan tailored to your goals and schedule.
+            </p>
+            <Button
+              onClick={() => setShowOnboarding(true)}
+              className="px-8 py-4 text-xl font-exo font-bold rounded-lg bg-primary text-black hover:bg-primary/80 transition-all duration-200 shadow-lg"
             >
-              <h1 className="text-4xl md:text-5xl font-exo font-black mb-4">How would you like to begin?</h1>
-              <p className="text-xl text-gray-300 font-barlow">
-                Create a personalized training plan tailored to your goals and schedule.
-              </p>
-            </motion.div>
-            <div className="grid grid-cols-1 md:grid-cols-2 gap-8">
-              <motion.div
-                initial={{ opacity: 0, y: 30 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ duration: 0.5, delay: 0.1 }}
-                whileHover={{ y: -10 }}
-              >
-                <Button
-                  onClick={() => setShowOnboarding(true)}
-                  className="w-full h-48 bg-gradient-to-br from-primary/20 to-primary/5 hover:from-primary/30 hover:to-primary/10 border border-primary/30 hover:border-primary/50 rounded-xl flex flex-col items-center justify-center gap-4 group hover:glow transition-all duration-300"
-                >
-                  <div className="w-16 h-16 rounded-full bg-primary/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                    <ArrowRight className="h-8 w-8 text-primary" />
-                  </div>
-                  <span className="text-2xl font-exo font-bold text-white">Generate New Plan</span>
-                </Button>
-              </motion.div>
-
-              {currentPlan && (
-                <motion.div
-                  initial={{ opacity: 0, y: 30 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.5, delay: 0.2 }}
-                  whileHover={{ y: -10 }}
-                >
-                  <Button
-                    onClick={() => setShowConfirmModal(true)}
-                    className="w-full h-48 bg-gradient-to-br from-secondary/20 to-secondary/5 hover:from-secondary/30 hover:to-secondary/10 border border-secondary/30 hover:border-secondary/50 rounded-xl flex flex-col items-center justify-center gap-4 group hover:glow-purple transition-all duration-300"
-                  >
-                    <div className="w-16 h-16 rounded-full bg-secondary/20 flex items-center justify-center group-hover:scale-110 transition-transform duration-300">
-                      <RefreshCw className="h-8 w-8 text-secondary" />
-                    </div>
-                    <span className="text-2xl font-exo font-bold text-white">Restart Plan</span>
-                  </Button>
-                </motion.div>
-              )}
+              Generate New Plan
+            </Button>
+            {/* Warning box at the bottom */}
+            <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-full max-w-2xl">
+              <div className="mt-16 p-4 bg-black/30 border border-yellow-500/30 rounded-lg flex items-start gap-3 justify-center">
+                <span className="text-yellow-500 text-xl mr-2">⚠️</span>
+                <span className="text-gray-300 font-barlow">
+                  You don't have an active training plan yet. Generate a new plan to get started with your running journey.
+                </span>
+              </div>
             </div>
-
-            {!currentPlan && (
-              <motion.div
-                initial={{ opacity: 0 }}
-                animate={{ opacity: 1 }}
-                transition={{ duration: 0.5, delay: 0.3 }}
-                className="mt-12 p-4 bg-black/30 border border-yellow-500/30 rounded-lg flex items-start gap-3"
-              >
-                <AlertCircle className="h-5 w-5 text-yellow-500 flex-shrink-0 mt-0.5" />
-                <div>
-                  <p className="text-gray-300 font-barlow">
-                    You don't have an active training plan yet. Generate a new plan to get started with your running
-                    journey.
-                  </p>
-                </div>
-              </motion.div>
-            )}
           </div>
         )}
       </div>

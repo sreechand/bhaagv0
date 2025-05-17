@@ -58,7 +58,7 @@ export default function Home() {
         <WhyBhaag />
         <KeyFeatures />
         <Testimonials />
-        <SamplePlan onViewClick={() => setShowSamplePlanModal(true)} />
+        <SamplePlan onPreviewClick={() => setShowSamplePlanModal(true)} />
         <FAQ />
         <ComingSoon />
         <Footer />

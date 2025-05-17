@@ -169,14 +169,17 @@ Estimate the total training duration in weeks and return it as "estimated_plan_d
 
 export async function POST(req: NextRequest) {
   try {
-    const supabase = createRouteHandlerClient({ cookies });
+    const cookiesStore = (await cookies()) as any;
+    const supabase = createRouteHandlerClient({ cookies: () => cookiesStore });
     const { data: { session } } = await supabase.auth.getSession();
 
     if (!session?.user?.id) {
+      console.error('Not authenticated');
       return NextResponse.json({ error: 'Not authenticated' }, { status: 401 });
     }
 
     const body = await req.json();
+    console.log('Received request body:', body);
     // Compose user prompt from input
     const userPrompt = `Proficiency Level: ${body.proficiency}\nAverage Weekly Mileage: ${body.weeklyMileage}\nLongest Run: ${body.longestRun}\nRecent Race Time: ${body.recentRace || 'N/A'}\nTarget Goal & Time: ${body.goal}${body.goalTime ? ' in ' + body.goalTime : ''}\nTraining Pace Zones: ${body.paceZones || 'N/A'}\nPreferred Training Days: ${body.preferredDays?.join(', ') || 'N/A'}\nPreferred Long Run Day: ${body.longRunDay || 'N/A'}\nPlan Start Date: ${body.planStartDate || 'N/A'}\nRace Date: ${body.raceDate || 'N/A'}\nStrength Level: ${body.strengthLevel || 'N/A'}\nTraining Environment: ${body.strengthEnvironment || 'N/A'}\nPreferred Strength Days: ${body.strengthDays?.join(', ') || 'N/A'}\nAvailable Equipment: ${body.availableEquipment?.join(', ') || 'N/A'}\nInclude Recovery Sessions: ${body.includeRecovery ? 'true' : 'false'}`;
 
@@ -199,11 +202,21 @@ export async function POST(req: NextRequest) {
 
     if (!openaiRes.ok) {
       const error = await openaiRes.text();
+      console.error('OpenAI API error:', error);
       return NextResponse.json({ error: 'OpenAI error', details: error }, { status: 500 });
     }
 
     const data = await openaiRes.json();
+    console.log('OpenAI API response:', data);
     const text = data.choices?.[0]?.message?.content || '';
+    let planJson;
+    try {
+      planJson = JSON.parse(text);
+      console.log('Parsed planJson:', planJson);
+    } catch (e: any) {
+      console.error('OpenAI output parse error:', e, text);
+      return NextResponse.json({ error: 'OpenAI output parse error', details: e.message }, { status: 500 });
+    }
 
     // Cancel any existing active plan for this user
     console.log('Attempting to cancel active plans for user:', session.user.id);
@@ -236,35 +249,105 @@ export async function POST(req: NextRequest) {
       end_date = new Date(start.getTime() + 28 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10);
     }
 
-    // Insert into Supabase
-    const { data: insertData, error: insertError } = await supabase
+    // Insert into training_plans
+    const { data: planRow, error: planError } = await supabase
       .from('training_plans')
-      .insert([{
+      .insert({
         user_id: session.user.id,
         block_number: 1,
         start_date,
         end_date,
-        plan_data: data, // full OpenAI response as JSON
+        plan_summary: planJson.plan_summary,
+        plan_data: planJson,
         status: 'active',
         generated_at: new Date().toISOString(),
-        inputs_json: body // store the full input for traceability
-      }])
+        inputs_json: body
+      })
       .select()
       .single();
 
-    console.log('Inserted plan:', insertData, insertError);
+    if (planError) {
+      console.error('Supabase insert error (training_plans):', planError.message, planError.details);
+      return NextResponse.json({ error: 'Supabase insert error', details: planError.message }, { status: 500 });
+    }
+    const planId = planRow.id;
 
-    if (insertError) {
-      return NextResponse.json({ error: 'Supabase insert error', details: insertError.message }, { status: 500 });
+    // Insert weeks and sessions
+    const weeks = [...new Set(planJson.training_schedule.map((s: any) => s.week))].sort((a, b) => (a as number) - (b as number));
+    const weekIds: string[] = [];
+    for (const weekNum of weeks) {
+      const weekTips = planJson.weekly_tips[`week_${weekNum}`] || [];
+      const weekSessions = planJson.training_schedule.filter((s: any) => s.week === weekNum);
+      const weeklyDistance = weekSessions
+        .filter((s: any) => s.type === 'run' && typeof s.description === 'string')
+        .reduce((sum: number, s: any) => {
+          const match = s.description.match(/(\d+(?:\.\d+)?)\s*km/);
+          return sum + (match ? parseFloat(match[1]) : 0);
+        }, 0);
+
+      const { data: weekRow, error: weekError } = await supabase
+        .from('plan_weeks')
+        .insert({
+          plan_id: planId,
+          week_number: weekNum,
+          weekly_tips: weekTips,
+          weekly_distance: weeklyDistance
+        })
+        .select()
+        .single();
+
+      if (weekError) {
+        console.error('Supabase week insert error:', weekError.message, weekError.details);
+        return NextResponse.json({ error: 'Supabase week insert error', details: weekError.message }, { status: 500 });
+      }
+      weekIds.push(weekRow.id);
+
+      for (const [order, session] of weekSessions.entries()) {
+        const { error: sessionError } = await supabase.from('plan_sessions').insert({
+          week_id: weekRow.id,
+          day: session.day,
+          type: session.type,
+          focus: session.focus,
+          description: session.description,
+          order_in_day: order
+        });
+        if (sessionError) {
+          console.error('Supabase session insert error:', sessionError.message, sessionError.details, session);
+          return NextResponse.json({ error: 'Supabase session insert error', details: sessionError.message }, { status: 500 });
+        }
+      }
     }
 
-    if (!insertData) {
-      return NextResponse.json({ error: 'No plan data returned from insert' }, { status: 500 });
+    // Fetch the plan weeks and sessions from Supabase
+    const { data: weeksData, error: weeksFetchError } = await supabase
+      .from('plan_weeks')
+      .select('*')
+      .eq('plan_id', planId)
+      .order('week_number', { ascending: true });
+    if (weeksFetchError) {
+      console.error('Supabase fetch error (plan_weeks):', weeksFetchError.message, weeksFetchError.details);
+      return NextResponse.json({ error: 'Supabase fetch error (plan_weeks)', details: weeksFetchError.message }, { status: 500 });
+    }
+    const { data: sessionsData, error: sessionsFetchError } = await supabase
+      .from('plan_sessions')
+      .select('*')
+      .in('week_id', weekIds)
+      .order('order_in_day', { ascending: true });
+    if (sessionsFetchError) {
+      console.error('Supabase fetch error (plan_sessions):', sessionsFetchError.message, sessionsFetchError.details);
+      return NextResponse.json({ error: 'Supabase fetch error (plan_sessions)', details: sessionsFetchError.message }, { status: 500 });
     }
 
-    // Return the raw OpenAI JSON response and the plan
-    return NextResponse.json({ plan: insertData, openai: data });
+    // Return the new plan data from the DB
+    console.log('Plan created successfully, plan_id:', planId);
+    return NextResponse.json({
+      plan_id: planId,
+      planSummary: planRow.plan_summary,
+      weeks: weeksData,
+      sessions: sessionsData
+    });
   } catch (err) {
+    console.error('API /generatePlan error:', err);
     return NextResponse.json({ error: 'Server error', details: String(err) }, { status: 500 });
   }
 } 

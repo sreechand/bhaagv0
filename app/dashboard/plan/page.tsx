@@ -27,61 +27,53 @@ export default function PlanPage() {
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"])
   const router = useRouter()
   const [pendingAction, setPendingAction] = useState<null | 'restart' | 'new'>(null)
+  const [planSummary, setPlanSummary] = useState(null);
+  const [weeks, setWeeks] = useState([]);
+  const [sessions, setSessions] = useState([]);
 
   useEffect(() => {
-    const checkSession = async () => {
-      try {
-        const { data: { session } } = await supabase.auth.getSession()
-        
-        if (!session || !session.user.id) {
-          router.replace('/auth/login')
-          return
-        }
-
-        // Get user profile
-        const { data: profile, error: profileError } = await supabase
-          .from('profiles')
-          .select('*')
-          .eq('id', session.user.id)
-          .single()
-
-        if (profileError) {
-          console.error('Error fetching profile:', profileError)
-          return
-        }
-
-        if (profile) {
-          setUserProfile(profile as unknown as Profile)
-        }
-
-        // Get current training plan
-        const { data: plan, error: planError } = await supabase
-          .from('training_plans')
-          .select('*')
-          .eq('user_id', session.user.id)
-          .eq('status', 'active')
-          .order('generated_at', { ascending: false })
-          .limit(1)
-          .single()
-
-        if (planError) {
-          if (planError.code !== 'PGRST116') { // PGRST116 is "no rows returned"
-            console.error('Error fetching plan:', planError)
-          }
-        } else if (plan) {
-          console.log('Fetched plan:', plan) // Add logging
-          setCurrentPlan(plan as unknown as TrainingPlan)
-        }
-      } catch (error) {
-        console.error('Session check error:', error)
-        router.replace('/auth/login')
-      } finally {
-        setLoading(false)
+    const fetchPlan = async () => {
+      setLoading(true);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session?.user?.id) {
+        router.replace('/auth/login');
+        return;
       }
-    }
+      // 1. Get active plan
+      const { data: plan } = await supabase
+        .from('training_plans')
+        .select('*')
+        .eq('user_id', session.user.id)
+        .eq('status', 'active')
+        .order('generated_at', { ascending: false })
+        .limit(1)
+        .single();
+      if (!plan) {
+        setLoading(false);
+        return;
+      }
+      setPlanSummary(plan.plan_summary);
 
-    checkSession()
-  }, [router])
+      // 2. Get weeks
+      const { data: weekRows } = await supabase
+        .from('plan_weeks')
+        .select('*')
+        .eq('plan_id', plan.id)
+        .order('week_number', { ascending: true });
+      setWeeks(weekRows);
+
+      // 3. Get sessions
+      const weekIds = weekRows.map(w => w.id);
+      const { data: sessionRows } = await supabase
+        .from('plan_sessions')
+        .select('*')
+        .in('week_id', weekIds);
+      setSessions(sessionRows);
+
+      setLoading(false);
+    };
+    fetchPlan();
+  }, [router]);
 
   const handlePlanAction = (action: 'restart' | 'new') => {
     setPendingAction(action)
@@ -175,14 +167,13 @@ export default function PlanPage() {
       <div className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full bg-secondary/10 filter blur-3xl"></div>
 
       <div className="container mx-auto px-6 py-12 relative z-10">
-        {currentPlan ? (
-          <>
-            <WeeklyPlan 
-              planData={currentPlan.plan_data} 
-              planStartDate={(currentPlan.inputs_json as any)?.planStartDate || ''} 
-              onNewPlan={() => handlePlanAction('new')}
-            />
-          </>
+        {planSummary && weeks.length > 0 ? (
+          <WeeklyPlan 
+            planSummary={planSummary}
+            weeks={weeks}
+            sessions={sessions}
+            onNewPlan={() => handlePlanAction('new')}
+          />
         ) : (
           <div className="flex flex-col items-center justify-center min-h-[60vh] relative w-full">
             <h1 className="text-4xl md:text-5xl font-exo font-black mb-4 text-center">

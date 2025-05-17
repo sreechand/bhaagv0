@@ -1,38 +1,49 @@
 "use client"
 
-import React from "react"
-import { useState } from "react"
+import React, { useState } from "react"
 import { motion } from "framer-motion"
 import { AlertCircle, Calendar, ChevronLeft, ChevronRight, Dumbbell, MonitorIcon as Running } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { addDays, format } from 'date-fns';
-
-function parsePlanJson(planData: any) {
-  // If planData is a string, try to parse JSON (strip code block if needed)
-  let json: any = planData;
-  if (typeof planData === 'string') {
-    const match = planData.match(/\{[\s\S]*\}/);
-    try {
-      json = JSON.parse(match ? match[0] : planData);
-    } catch (e) {
-      return null;
-    }
-  }
-  // If planData is OpenAI response, extract content
-  if (planData?.choices?.[0]?.message?.content) {
-    const match = planData.choices[0].message.content.match(/\{[\s\S]*\}/);
-    try {
-      json = JSON.parse(match ? match[0] : planData.choices[0].message.content);
-    } catch (e) {
-      return null;
-    }
-  }
-  return json;
-}
+import type { Database } from '@/types/supabase';
+import { supabase } from "@/lib/supabaseClient";
 
 const DAYS_ORDER = [
   'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
 ];
+
+type PlanSummary = {
+  estimated_total_plan_mileage: number;
+  estimated_plan_duration_weeks: number;
+  block_run_mileage: number;
+  strength_focus_summary: string;
+};
+
+type PlanWeek = Database['public']['Tables']['plan_weeks']['Row'];
+type PlanSession = Database['public']['Tables']['plan_sessions']['Row'];
+type WorkoutLogInsert = Database['public']['Tables']['workout_logs']['Insert'];
+type PlanSessionUpdate = Database['public']['Tables']['plan_sessions']['Update'];
+
+type WeeklyPlanProps = {
+  planSummary: PlanSummary;
+  weeks: PlanWeek[];
+  sessions: PlanSession[];
+  onNewPlan?: () => void;
+};
+
+type WorkoutLogModalProps = {
+  session: PlanSession;
+  onClose: () => void;
+  onLogged: () => void;
+};
+
+/** Remove any keys whose value is `undefined` */
+function omitUndefined<T extends object>(obj: T): Partial<T> {
+  return Object.entries(obj).reduce((acc, [k, v]) => {
+    if (v !== undefined) (acc as any)[k] = v;
+    return acc;
+  }, {} as Partial<T>);
+}
 
 function getWorkoutColor(type: string, focus?: string) {
   if (!type) return 'bg-gray-800/50 border-white/10';
@@ -50,56 +61,95 @@ function getWorkoutColor(type: string, focus?: string) {
   return 'bg-gray-800/50 border-white/10';
 }
 
-export default function WeeklyPlan({ planData, planStartDate, onNewPlan }: { planData: any, planStartDate: string, onNewPlan?: () => void }) {
-  const parsed = parsePlanJson(planData);
-  if (!parsed) {
-    return (
-      <div className="text-center p-8">
-        <div className="text-gray-400 mb-4">No plan data available.</div>
-        <div className="text-sm text-gray-500">Please try generating a new plan.</div>
-      </div>
-    );
-  }
-  const { plan_summary, training_schedule, weekly_tips } = parsed;
-  // Find all unique weeks
-  const weeks = (Array.from(new Set(training_schedule.map((s: any) => s.week))) as number[]).sort((a, b) => a - b);
-  const [currentWeek, setCurrentWeek] = useState(0);
+function WorkoutLogModal({ session, onClose, onLogged }: WorkoutLogModalProps) {
+  const [distance, setDistance] = useState<string>("");
+  const [elapsedTime, setElapsedTime] = useState<string>("");
+  const [rpe, setRpe] = useState<string>("");
+  const [notes, setNotes] = useState<string>("");
+  const [saving, setSaving] = useState(false);
 
-  // Clamp currentWeek to valid range
-  React.useEffect(() => {
-    setCurrentWeek(0);
-  }, [planData]);
-  React.useEffect(() => {
-    if (currentWeek < 0) setCurrentWeek(0);
-    if (currentWeek > weeks.length - 1) setCurrentWeek(weeks.length - 1);
-  }, [currentWeek, weeks.length]);
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setSaving(true);
+    const rawLog = {
+      date: new Date().toISOString().slice(0, 10),
+      session_id: session.id,
+      distance: distance ? +distance : undefined,
+      elapsed_time: elapsedTime ? +elapsedTime : undefined,
+      rpe: rpe ? +rpe : undefined,
+      notes: notes ? notes : undefined,
+    };
+    const newLog = { ...omitUndefined(rawLog) } as WorkoutLogInsert;
+    const { error } = await supabase.from("workout_logs").insert([newLog]);
+    if (error) {
+      console.error('Supabase insert error:', error);
+    }
+    setSaving(false);
+    if (!error) onLogged();
+    // Optionally show error
+  };
 
-  // Group sessions by day for the current week
-  const weekNum = weeks[currentWeek];
-  const weekSessions = training_schedule.filter((s: any) => s.week === weekNum);
-  const dayMap: Record<string, any[]> = {};
-  DAYS_ORDER.forEach(day => { dayMap[day] = []; });
-  weekSessions.forEach((s: any) => {
-    const day = (s.day.charAt(0).toUpperCase() + s.day.slice(1,3).toLowerCase());
+  return (
+    <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
+      <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow-lg w-full max-w-md">
+        <h2 className="text-xl font-bold mb-4">Log Workout</h2>
+        <div className="mb-2">
+          <label className="block text-sm">Distance (km)</label>
+          <input type="number" value={distance} onChange={e => setDistance(e.target.value)} className="w-full border px-2 py-1" />
+        </div>
+        <div className="mb-2">
+          <label className="block text-sm">Elapsed Time (seconds)</label>
+          <input type="number" value={elapsedTime} onChange={e => setElapsedTime(e.target.value)} className="w-full border px-2 py-1" />
+        </div>
+        <div className="mb-2">
+          <label className="block text-sm">RPE (1-10)</label>
+          <input type="number" min={1} max={10} value={rpe} onChange={e => setRpe(e.target.value)} className="w-full border px-2 py-1" />
+        </div>
+        <div className="mb-2">
+          <label className="block text-sm">Notes</label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full border px-2 py-1" />
+        </div>
+        <div className="flex justify-end gap-2 mt-4">
+          <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
+          <button type="submit" disabled={saving} className="px-4 py-2 bg-primary text-white rounded">
+            {saving ? "Saving..." : "Save"}
+          </button>
+        </div>
+      </form>
+    </div>
+  );
+}
+
+const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, onNewPlan }) => {
+  const [currentWeekIdx, setCurrentWeekIdx] = useState<number>(0);
+  const [logModalSession, setLogModalSession] = useState<PlanSession | null>(null);
+  if (!weeks.length) return <div>No plan data available.</div>;
+
+  const week = weeks[currentWeekIdx];
+  const weekSessions = sessions.filter((s) => s.week_id === week.id);
+  // Group by day
+  const dayMap: Record<string, PlanSession[]> = {};
+  DAYS_ORDER.forEach((day) => { dayMap[day] = []; });
+  weekSessions.forEach((s) => {
+    const day = s.day.charAt(0).toUpperCase() + s.day.slice(1, 3).toLowerCase();
     if (dayMap[day]) dayMap[day].push(s);
   });
 
   // Calculate the start date for the current week
-  const startDate = planStartDate ? new Date(planStartDate) : null;
-  const weekStartDate = startDate ? addDays(startDate, currentWeek * 7) : null;
+  const startDate = (week as any).start_date ? new Date((week as any).start_date) : null;
+  const weekStartDate = startDate ? addDays(startDate, currentWeekIdx * 7) : null;
   function getDateForDay(idx: number) {
     return weekStartDate ? format(addDays(weekStartDate, idx), 'EEE, yyyy-MM-dd') : '';
   }
 
   // Calculate weekly total distance (sum of all run distances in description)
   function extractDistance(desc: string): number {
-    // Try to extract the first number (km) from the string
-    const match = desc.match(/(\d+(?:\.\d+)?)\s*km/);
+    const match = typeof desc === 'string' ? desc.match(/(\d+(?:\.\d+)?)\s*km/) : null;
     return match ? parseFloat(match[1]) : 0;
   }
   const weeklyDistance = weekSessions
-    .filter((s: any) => s.type === 'run' && typeof s.description === 'string')
-    .reduce((sum: number, s: any) => sum + extractDistance(s.description), 0);
+    .filter((s) => s.type === 'run' && typeof s.description === 'string')
+    .reduce((sum, s) => sum + extractDistance(typeof s.description === 'string' ? s.description : ''), 0);
 
   return (
     <div className="space-y-8">
@@ -109,14 +159,14 @@ export default function WeeklyPlan({ planData, planStartDate, onNewPlan }: { pla
         <p className="text-xl text-gray-300 font-barlow">Below is your personalized weekly schedule.</p>
       </div>
       {/* Plan Summary */}
-      {plan_summary && (
+      {planSummary && (
         <div className="bg-black/30 rounded-lg p-4 border border-white/10 mb-6">
           <h3 className="text-xl font-exo font-bold mb-2">PLAN SUMMARY</h3>
           <div className="flex flex-wrap gap-6 text-gray-300 font-barlow">
-            <div>Estimated Total Mileage: <span className="font-bold">{plan_summary.estimated_total_plan_mileage} km</span></div>
-            <div>Plan Duration: <span className="font-bold">{plan_summary.estimated_plan_duration_weeks} weeks</span></div>
-            <div>Block Run Mileage: <span className="font-bold">{plan_summary.block_run_mileage} km</span></div>
-            <div>Strength Focus: <span className="font-bold">{plan_summary.strength_focus_summary}</span></div>
+            <div>Estimated Total Mileage: <span className="font-bold">{planSummary.estimated_total_plan_mileage} km</span></div>
+            <div>Plan Duration: <span className="font-bold">{planSummary.estimated_plan_duration_weeks} weeks</span></div>
+            <div>Block Run Mileage: <span className="font-bold">{planSummary.block_run_mileage} km</span></div>
+            <div>Strength Focus: <span className="font-bold">{planSummary.strength_focus_summary}</span></div>
           </div>
         </div>
       )}
@@ -131,20 +181,20 @@ export default function WeeklyPlan({ planData, planStartDate, onNewPlan }: { pla
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setCurrentWeek((w) => Math.max(0, w - 1))}
-            disabled={currentWeek === 0}
+            onClick={() => setCurrentWeekIdx((w) => Math.max(0, w - 1))}
+            disabled={currentWeekIdx === 0}
             className="rounded-full bg-black/30 border-white/20 hover:bg-black/50"
           >
             <ChevronLeft className="h-4 w-4" />
           </Button>
           <span className="font-barlow px-2">
-            Week {currentWeek + 1} of {weeks.length}
+            Week {currentWeekIdx + 1} of {weeks.length}
           </span>
           <Button
             variant="outline"
             size="icon"
-            onClick={() => setCurrentWeek((w) => Math.min(weeks.length - 1, w + 1))}
-            disabled={currentWeek === weeks.length - 1}
+            onClick={() => setCurrentWeekIdx((w) => Math.min(weeks.length - 1, w + 1))}
+            disabled={currentWeekIdx === weeks.length - 1}
             className="rounded-full bg-black/30 border-white/20 hover:bg-black/50"
           >
             <ChevronRight className="h-4 w-4" />
@@ -173,9 +223,9 @@ export default function WeeklyPlan({ planData, planStartDate, onNewPlan }: { pla
                 dayMap[day].map((session, i) => (
                   <div
                     key={i}
-                    className={`p-3 rounded-lg ${getWorkoutColor(session.type, session.focus)}`}
+                    className={`p-3 rounded-lg ${getWorkoutColor(session.type, session.focus || '')}`}
                   >
-                    <div className="font-barlow font-semibold text-sm mb-1 capitalize">{session.type} - {session.focus}</div>
+                    <div className="font-barlow font-semibold text-sm mb-1 capitalize">{session.type} - {(session.focus || '')}</div>
                     {Array.isArray(session.description) ? (
                       <ul className="text-xs text-gray-300 font-barlow list-disc pl-4">
                         {(session.description as any[]).map((ex: any, j: number) => (
@@ -188,8 +238,47 @@ export default function WeeklyPlan({ planData, planStartDate, onNewPlan }: { pla
                         ))}
                       </ul>
                     ) : (
-                      <div className="text-xs text-gray-300 font-barlow">{session.description as string}</div>
+                      <div className="text-xs text-gray-300 font-barlow">{typeof session.description === 'string' ? session.description : ''}</div>
                     )}
+                    {/* Move session dropdown */}
+                    <div className="mt-2 flex items-center gap-2">
+                      <label className="text-xs text-gray-400 mr-2">Move to:</label>
+                      <select
+                        value={session.day || ''}
+                        onChange={async (e) => {
+                          const newDay = e.target.value;
+                          if (!session.id) return;
+                          const rawUpdate = {
+                            day: newDay ?? undefined,
+                          };
+                          const updatePayload = { ...omitUndefined(rawUpdate) } as PlanSessionUpdate;
+                          await supabase
+                            .from("plan_sessions")
+                            .update(updatePayload)
+                            .eq("id", session.id)
+                            .then(({ error }) => {
+                              if (error) {
+                                console.error('Supabase update error:', error);
+                              }
+                            });
+                          window.location.reload();
+                        }}
+                        className="bg-black/30 border border-white/10 rounded px-2 py-1 text-xs"
+                      >
+                        {DAYS_ORDER.map((d) => (
+                          <option key={d} value={d}>
+                            {d}
+                          </option>
+                        ))}
+                      </select>
+                      <button
+                        className="ml-2 px-3 py-1 bg-primary text-black rounded text-xs font-bold"
+                        onClick={() => setLogModalSession(session)}
+                        type="button"
+                      >
+                        Log Workout
+                      </button>
+                    </div>
                   </div>
                 ))
               )}
@@ -198,12 +287,12 @@ export default function WeeklyPlan({ planData, planStartDate, onNewPlan }: { pla
         ))}
       </div>
       {/* Weekly Tips and Distance */}
-      {(weekly_tips && weekly_tips[`week_${weekNum}`]) && (
+      {week.weekly_tips && (
         <div className="bg-black/30 rounded-lg p-4 border border-primary/30 mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h3 className="text-lg font-exo font-bold mb-2 text-primary">Tips for Week {weekNum}</h3>
+            <h3 className="text-lg font-exo font-bold mb-2 text-primary">Tips for Week {week.id}</h3>
             <ul className="list-disc pl-6 text-primary font-barlow">
-              {(weekly_tips[`week_${weekNum}`] as string[]).map((tip: string, idx: number) => (
+              {(week.weekly_tips as string[]).map((tip: string, idx: number) => (
                 <li key={idx}>{tip}</li>
               ))}
             </ul>
@@ -224,6 +313,19 @@ export default function WeeklyPlan({ planData, planStartDate, onNewPlan }: { pla
           </Button>
         </div>
       )}
+      {/* Workout Log Modal */}
+      {logModalSession && (
+        <WorkoutLogModal
+          session={logModalSession}
+          onClose={() => setLogModalSession(null)}
+          onLogged={() => {
+            setLogModalSession(null);
+            window.location.reload();
+          }}
+        />
+      )}
     </div>
   );
-}
+};
+
+export default WeeklyPlan;

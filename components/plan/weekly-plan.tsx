@@ -67,7 +67,10 @@ function WorkoutLogModal({ session, onClose, onLogged }: WorkoutLogModalProps) {
   const [elapsedTime, setElapsedTime] = useState<string>("");
   const [rpe, setRpe] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+  const [avgHeartRate, setAvgHeartRate] = useState<string>("");
+  const [maxHeartRate, setMaxHeartRate] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [skipping, setSkipping] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -79,28 +82,15 @@ function WorkoutLogModal({ session, onClose, onLogged }: WorkoutLogModalProps) {
       setSaving(false);
       return;
     }
-    // Log all relevant values for debugging
-    console.log('distance:', distance, 'elapsedTime:', elapsedTime, 'rpe:', rpe, 'notes:', notes);
-    console.log('session.id:', session.id, 'user.id:', user.id);
-    if (!session.id) {
-      console.error('No session.id provided, cannot insert workout log.');
-      setSaving(false);
-      return;
-    }
-    if (!user.id) {
-      console.error('No user.id provided, cannot insert workout log.');
-      setSaving(false);
-      return;
-    }
     // Build and log the raw workout log object
     const rawLog = {
-      avg_heart_rate: undefined,
+      avg_heart_rate: avgHeartRate ? +avgHeartRate : undefined,
       created_at: undefined,
       date: new Date().toISOString().slice(0, 10),
       distance: distance ? +distance : undefined,
       elapsed_time: elapsedTime ? +elapsedTime : undefined,
       id: undefined,
-      max_heart_rate: undefined,
+      max_heart_rate: maxHeartRate ? +maxHeartRate : undefined,
       notes: notes ? notes : undefined,
       rpe: rpe ? +rpe : undefined,
       session_id: session.id,
@@ -118,6 +108,38 @@ function WorkoutLogModal({ session, onClose, onLogged }: WorkoutLogModalProps) {
     setSaving(false);
     if (!error) onLogged();
     // Optionally show error
+  };
+
+  const handleSkip = async () => {
+    setSkipping(true);
+    // Fetch current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('Supabase user fetch error:', userError);
+      setSkipping(false);
+      return;
+    }
+    const skipLog = {
+      avg_heart_rate: undefined,
+      created_at: undefined,
+      date: new Date().toISOString().slice(0, 10),
+      distance: undefined,
+      elapsed_time: undefined,
+      id: undefined,
+      max_heart_rate: undefined,
+      notes: 'SKIPPED',
+      rpe: undefined,
+      session_id: session.id,
+      user_id: user.id,
+      skipped: true,
+    };
+    const newLog = omitUndefined(skipLog);
+    const { error } = await supabase.from("workout_logs").insert([newLog]);
+    if (error) {
+      console.error('Supabase insert error (skip):', error, 'Payload:', newLog);
+    }
+    setSkipping(false);
+    if (!error) onLogged();
   };
 
   return (
@@ -140,13 +162,24 @@ function WorkoutLogModal({ session, onClose, onLogged }: WorkoutLogModalProps) {
           <label className="block text-sm font-barlow text-gray-300 mb-1">RPE (1-10)</label>
           <input type="number" min={1} max={10} value={rpe} onChange={e => setRpe(e.target.value)} className="w-full bg-black/40 border border-primary/30 rounded px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/60 transition" />
         </div>
+        <div className="mb-4">
+          <label className="block text-sm font-barlow text-gray-300 mb-1">Average Heart Rate (bpm)</label>
+          <input type="number" value={avgHeartRate} onChange={e => setAvgHeartRate(e.target.value)} className="w-full bg-black/40 border border-primary/30 rounded px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/60 transition" />
+        </div>
+        <div className="mb-4">
+          <label className="block text-sm font-barlow text-gray-300 mb-1">Max Heart Rate (bpm)</label>
+          <input type="number" value={maxHeartRate} onChange={e => setMaxHeartRate(e.target.value)} className="w-full bg-black/40 border border-primary/30 rounded px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/60 transition" />
+        </div>
         <div className="mb-6">
           <label className="block text-sm font-barlow text-gray-300 mb-1">Notes</label>
           <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-black/40 border border-primary/30 rounded px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/60 transition min-h-[60px]" />
         </div>
         <div className="flex justify-end gap-3 mt-4">
           <button type="button" onClick={onClose} className="px-5 py-2 bg-gray-700 text-gray-200 rounded-lg font-barlow hover:bg-gray-600 transition">Cancel</button>
-          <button type="submit" disabled={saving} className="px-5 py-2 bg-gradient-to-r from-primary to-secondary text-black rounded-lg font-barlow font-bold shadow hover:from-primary/80 hover:to-secondary/80 transition disabled:opacity-60">
+          <button type="button" onClick={handleSkip} disabled={saving || skipping} className="px-5 py-2 bg-red-700 text-white rounded-lg font-barlow font-bold shadow hover:bg-red-800 transition disabled:opacity-60">
+            {skipping ? "Skipping..." : "Skip Workout"}
+          </button>
+          <button type="submit" disabled={saving || skipping} className="px-5 py-2 bg-gradient-to-r from-primary to-secondary text-black rounded-lg font-barlow font-bold shadow hover:from-primary/80 hover:to-secondary/80 transition disabled:opacity-60">
             {saving ? "Saving..." : "Save"}
           </button>
         </div>
@@ -288,21 +321,25 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, w
                 <div className="text-gray-500 text-sm font-barlow text-center">Rest / No workout</div>
               ) :
                 dayMap[day].map((session, i) => {
-                  // Check if session is logged
-                  const isLogged = workoutLogs.some(log => log.session_id === session.id);
+                  // Check if session is logged or skipped
+                  const log = workoutLogs.find(log => log.session_id === session.id);
+                  const isLogged = !!log && !log.skipped;
+                  const isSkipped = !!log && log.skipped;
+                  const isClosed = !!log;
                   return (
                     <div
                       key={i}
                       className={`p-3 rounded-lg ${getWorkoutColor(session.type, session.focus || '')} relative ${draggedSession?.id === session.id ? 'opacity-50' : ''}`}
-                      draggable={!isLogged}
-                      onDoubleClick={() => !isLogged && setLogModalSession(session)}
-                      style={{ cursor: isLogged ? 'not-allowed' : 'grab', opacity: isLogged ? 0.6 : 1 }}
-                      onDragStart={() => !isLogged && handleDragStart(session)}
+                      draggable={!isClosed}
+                      onDoubleClick={() => !isClosed && setLogModalSession(session)}
+                      style={{ cursor: isClosed ? 'not-allowed' : 'grab', opacity: isClosed ? 0.6 : 1 }}
+                      onDragStart={() => !isClosed && handleDragStart(session)}
                       onDragEnd={handleDragEnd}
                     >
                       <div className="font-barlow font-semibold text-sm mb-1 capitalize flex items-center gap-2">
                         {session.type} - {(session.focus || '')}
                         {isLogged && <span className="ml-2 text-green-400" title="Workout logged">✔</span>}
+                        {isSkipped && <span className="ml-2 text-red-500" title="Workout skipped">❌</span>}
                       </div>
                       {Array.isArray(session.description) ? (
                         <ul className="text-xs text-gray-300 font-barlow list-disc pl-4">

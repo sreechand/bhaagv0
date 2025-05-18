@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from "react"
 import { motion, useScroll, useTransform } from "framer-motion"
 import Link from "next/link"
-import { ArrowRight, Award, Calendar, LineChartIcon as ChartLineUp, Clock, Dumbbell, Flame, Zap, ArrowLeft } from "lucide-react"
+import { ArrowRight, Award, Calendar, LineChartIcon as ChartLineUp, Clock, Dumbbell, Flame, Zap, ArrowLeft, Mic } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useRouter } from "next/navigation"
 import { supabase } from "@/lib/supabaseClient"
 import Navbar from "@/components/navbar"
 import { Database } from "@/types/supabase"
+import { VoiceCoach } from "@/components/milkha/voice-coach"
 
 type Profile = Database['public']['Tables']['profiles']['Row']
 
@@ -18,6 +19,7 @@ export default function DashboardPage() {
   const canvasRef = useRef<HTMLCanvasElement>(null)
   const [loading, setLoading] = useState(true)
   const [userProfile, setUserProfile] = useState<Profile | null>(null)
+  const [showVoiceCoach, setShowVoiceCoach] = useState(false)
   const router = useRouter()
 
   useEffect(() => {
@@ -359,6 +361,84 @@ export default function DashboardPage() {
           ))}
         </div>
       </div>
+
+      {/* Voice Coach Button */}
+      <motion.div
+        initial={{ opacity: 0, scale: 0.8 }}
+        animate={{ opacity: 1, scale: 1 }}
+        transition={{ delay: 1 }}
+        className="fixed bottom-6 right-6 z-[100] group"
+      >
+        {/* Tooltip */}
+        <div className={`absolute bottom-full right-0 mb-2 pointer-events-none transition-opacity duration-200 ${!showVoiceCoach ? 'opacity-100' : 'opacity-0'}`}>
+          <div className="bg-black/90 backdrop-blur-sm px-4 py-2 rounded-lg border border-primary/20 shadow-lg">
+            <p className="text-sm text-gray-200 whitespace-nowrap">Meet Milkha, AI coach</p>
+          </div>
+          <div className="absolute bottom-0 right-6 transform translate-y-1/2 rotate-45 w-2 h-2 bg-black/90 border-r border-b border-primary/20"></div>
+        </div>
+
+        <motion.button
+          className="relative h-16 w-16 rounded-full flex items-center justify-center bg-black/40 border border-primary/30 backdrop-blur-sm shadow-lg transition-all duration-300 hover:border-primary/50"
+          onClick={() => setShowVoiceCoach(!showVoiceCoach)}
+          whileHover={{ scale: 1.05 }}
+          whileTap={{ scale: 0.95 }}
+        >
+          {/* AI Core */}
+          <div className="absolute inset-2 bg-gradient-to-br from-primary/20 to-purple-500/20 rounded-full overflow-hidden">
+            <div className="absolute inset-0 bg-grid-pattern opacity-30"></div>
+          </div>
+
+          {/* Central Orb */}
+          <div className="relative z-10 h-8 w-8 rounded-full bg-gradient-to-br from-primary to-purple-500 flex items-center justify-center shadow-lg">
+            <motion.div
+              className="h-6 w-6 rounded-full bg-black/50 flex items-center justify-center backdrop-blur-sm"
+              animate={{
+                rotate: 360,
+              }}
+              transition={{
+                duration: 8,
+                repeat: Infinity,
+                ease: "linear",
+              }}
+            >
+              <div className="h-3 w-3 rounded-full bg-primary/80" />
+            </motion.div>
+          </div>
+
+          {/* Ripple Effect */}
+          <motion.div
+            className="absolute inset-0 rounded-full border-2 border-primary/20"
+            animate={{
+              scale: [1, 1.2],
+              opacity: [0.2, 0],
+            }}
+            transition={{
+              duration: 2,
+              repeat: Infinity,
+            }}
+          />
+        </motion.button>
+
+        {/* Pulse Indicator for First-time Users */}
+        <motion.div
+          className="absolute -top-1 -right-1 w-3 h-3 bg-primary rounded-full"
+          animate={{
+            scale: [1, 1.5, 1],
+            opacity: [1, 0.5, 1],
+          }}
+          transition={{
+            duration: 2,
+            repeat: Infinity,
+            ease: "easeInOut",
+          }}
+        />
+      </motion.div>
+
+      {/* Voice Coach Component */}
+      <VoiceCoach 
+        isOpen={showVoiceCoach} 
+        onClose={() => setShowVoiceCoach(false)} 
+      />
     </div>
   )
 }

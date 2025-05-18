@@ -9,7 +9,7 @@ interface PlanPreviewStepProps {
   formData: any
 }
 
-// Mock data for the plan preview
+// Mock data for the plan preview .
 const mockWeekPlan = [
   {
     day: "Monday",

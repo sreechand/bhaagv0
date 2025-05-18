@@ -341,10 +341,12 @@ export async function POST(req: NextRequest) {
     // Return the new plan data from the DB
     console.log('Plan created successfully, plan_id:', planId);
     return NextResponse.json({
-      plan_id: planId,
-      planSummary: planRow.plan_summary,
-      weeks: weeksData,
-      sessions: sessionsData
+      plan: {
+        plan_id: planId,
+        planSummary: planRow.plan_summary,
+        weeks: weeksData,
+        sessions: sessionsData
+      }
     });
   } catch (err) {
     console.error('API /generatePlan error:', err);

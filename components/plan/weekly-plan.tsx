@@ -28,6 +28,7 @@ type WeeklyPlanProps = {
   planSummary: PlanSummary;
   weeks: PlanWeek[];
   sessions: PlanSession[];
+  workoutLogs: any[];
   onNewPlan?: () => void;
 };
 
@@ -66,52 +67,119 @@ function WorkoutLogModal({ session, onClose, onLogged }: WorkoutLogModalProps) {
   const [elapsedTime, setElapsedTime] = useState<string>("");
   const [rpe, setRpe] = useState<string>("");
   const [notes, setNotes] = useState<string>("");
+  const [avgHeartRate, setAvgHeartRate] = useState<string>("");
+  const [maxHeartRate, setMaxHeartRate] = useState<string>("");
   const [saving, setSaving] = useState(false);
+  const [skipping, setSkipping] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setSaving(true);
+    // Fetch current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('Supabase user fetch error:', userError);
+      setSaving(false);
+      return;
+    }
+    // Build and log the raw workout log object
     const rawLog = {
+      avg_heart_rate: avgHeartRate ? +avgHeartRate : undefined,
+      created_at: undefined,
       date: new Date().toISOString().slice(0, 10),
-      session_id: session.id,
       distance: distance ? +distance : undefined,
       elapsed_time: elapsedTime ? +elapsedTime : undefined,
-      rpe: rpe ? +rpe : undefined,
+      id: undefined,
+      max_heart_rate: maxHeartRate ? +maxHeartRate : undefined,
       notes: notes ? notes : undefined,
+      rpe: rpe ? +rpe : undefined,
+      session_id: session.id,
+      user_id: user.id,
     };
-    const newLog = { ...omitUndefined(rawLog) } as WorkoutLogInsert;
+    console.log('Raw workout log object:', rawLog);
+
+    const newLog = omitUndefined(rawLog);
+    console.log('Workout log payload after omitUndefined:', newLog);
+
     const { error } = await supabase.from("workout_logs").insert([newLog]);
     if (error) {
-      console.error('Supabase insert error:', error);
+      console.error('Supabase insert error:', error, 'Payload:', newLog);
     }
     setSaving(false);
     if (!error) onLogged();
     // Optionally show error
   };
 
+  const handleSkip = async () => {
+    setSkipping(true);
+    // Fetch current user
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      console.error('Supabase user fetch error:', userError);
+      setSkipping(false);
+      return;
+    }
+    const skipLog = {
+      avg_heart_rate: undefined,
+      created_at: undefined,
+      date: new Date().toISOString().slice(0, 10),
+      distance: undefined,
+      elapsed_time: undefined,
+      id: undefined,
+      max_heart_rate: undefined,
+      notes: 'SKIPPED',
+      rpe: undefined,
+      session_id: session.id,
+      user_id: user.id,
+      skipped: true,
+    };
+    const newLog = omitUndefined(skipLog);
+    const { error } = await supabase.from("workout_logs").insert([newLog]);
+    if (error) {
+      console.error('Supabase insert error (skip):', error, 'Payload:', newLog);
+    }
+    setSkipping(false);
+    if (!error) onLogged();
+  };
+
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50">
-      <form onSubmit={handleSubmit} className="bg-white p-6 rounded shadow-lg w-full max-w-md">
-        <h2 className="text-xl font-bold mb-4">Log Workout</h2>
-        <div className="mb-2">
-          <label className="block text-sm">Distance (km)</label>
-          <input type="number" value={distance} onChange={e => setDistance(e.target.value)} className="w-full border px-2 py-1" />
+      <form onSubmit={handleSubmit} className="relative bg-gradient-to-br from-black via-gray-900 to-gray-800 p-8 rounded-2xl shadow-2xl w-full max-w-md border border-primary/40">
+        {/* Close button */}
+        <button type="button" onClick={onClose} className="absolute top-3 right-3 text-gray-400 hover:text-primary text-xl font-bold focus:outline-none">
+          ×
+        </button>
+        <h2 className="text-2xl font-exo font-bold mb-6 text-primary text-center">Log Workout</h2>
+        <div className="mb-4">
+          <label className="block text-sm font-barlow text-gray-300 mb-1">Distance (km)</label>
+          <input type="number" value={distance} onChange={e => setDistance(e.target.value)} className="w-full bg-black/40 border border-primary/30 rounded px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/60 transition" />
         </div>
-        <div className="mb-2">
-          <label className="block text-sm">Elapsed Time (seconds)</label>
-          <input type="number" value={elapsedTime} onChange={e => setElapsedTime(e.target.value)} className="w-full border px-2 py-1" />
+        <div className="mb-4">
+          <label className="block text-sm font-barlow text-gray-300 mb-1">Elapsed Time (seconds)</label>
+          <input type="number" value={elapsedTime} onChange={e => setElapsedTime(e.target.value)} className="w-full bg-black/40 border border-primary/30 rounded px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/60 transition" />
         </div>
-        <div className="mb-2">
-          <label className="block text-sm">RPE (1-10)</label>
-          <input type="number" min={1} max={10} value={rpe} onChange={e => setRpe(e.target.value)} className="w-full border px-2 py-1" />
+        <div className="mb-4">
+          <label className="block text-sm font-barlow text-gray-300 mb-1">RPE (1-10)</label>
+          <input type="number" min={1} max={10} value={rpe} onChange={e => setRpe(e.target.value)} className="w-full bg-black/40 border border-primary/30 rounded px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/60 transition" />
         </div>
-        <div className="mb-2">
-          <label className="block text-sm">Notes</label>
-          <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full border px-2 py-1" />
+        <div className="mb-4">
+          <label className="block text-sm font-barlow text-gray-300 mb-1">Average Heart Rate (bpm)</label>
+          <input type="number" value={avgHeartRate} onChange={e => setAvgHeartRate(e.target.value)} className="w-full bg-black/40 border border-primary/30 rounded px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/60 transition" />
         </div>
-        <div className="flex justify-end gap-2 mt-4">
-          <button type="button" onClick={onClose} className="px-4 py-2 bg-gray-300 rounded">Cancel</button>
-          <button type="submit" disabled={saving} className="px-4 py-2 bg-primary text-white rounded">
+        <div className="mb-4">
+          <label className="block text-sm font-barlow text-gray-300 mb-1">Max Heart Rate (bpm)</label>
+          <input type="number" value={maxHeartRate} onChange={e => setMaxHeartRate(e.target.value)} className="w-full bg-black/40 border border-primary/30 rounded px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/60 transition" />
+        </div>
+        <div className="mb-6">
+          <label className="block text-sm font-barlow text-gray-300 mb-1">Notes</label>
+          <textarea value={notes} onChange={e => setNotes(e.target.value)} className="w-full bg-black/40 border border-primary/30 rounded px-3 py-2 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/60 transition min-h-[60px]" />
+        </div>
+        <div className="flex justify-end gap-3 mt-4">
+          <button type="button" onClick={onClose} className="px-5 py-2 bg-gray-700 text-gray-200 rounded-lg font-barlow hover:bg-gray-600 transition">Cancel</button>
+          <button type="button" onClick={handleSkip} disabled={saving || skipping} className="px-5 py-2 bg-red-700 text-white rounded-lg font-barlow font-bold shadow hover:bg-red-800 transition disabled:opacity-60">
+            {skipping ? "Skipping..." : "Skip Workout"}
+          </button>
+          <button type="submit" disabled={saving || skipping} className="px-5 py-2 bg-gradient-to-r from-primary to-secondary text-black rounded-lg font-barlow font-bold shadow hover:from-primary/80 hover:to-secondary/80 transition disabled:opacity-60">
             {saving ? "Saving..." : "Save"}
           </button>
         </div>
@@ -120,9 +188,13 @@ function WorkoutLogModal({ session, onClose, onLogged }: WorkoutLogModalProps) {
   );
 }
 
-const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, onNewPlan }) => {
+const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, workoutLogs, onNewPlan }) => {
   const [currentWeekIdx, setCurrentWeekIdx] = useState<number>(0);
   const [logModalSession, setLogModalSession] = useState<PlanSession | null>(null);
+  // Drag-and-drop state
+  const [draggedSession, setDraggedSession] = useState<PlanSession | null>(null);
+  const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+
   if (!weeks.length) return <div>No plan data available.</div>;
 
   const week = weeks[currentWeekIdx];
@@ -150,6 +222,31 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, o
   const weeklyDistance = weekSessions
     .filter((s) => s.type === 'run' && typeof s.description === 'string')
     .reduce((sum, s) => sum + extractDistance(typeof s.description === 'string' ? s.description : ''), 0);
+
+  // Drag-and-drop handlers
+  const handleDragStart = (session: PlanSession) => {
+    setDraggedSession(session);
+  };
+  const handleDragEnd = () => {
+    setDraggedSession(null);
+    setDragOverDay(null);
+  };
+  const handleDragOver = (day: string, e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOverDay(day);
+  };
+  const handleDrop = async (day: string) => {
+    if (!draggedSession || draggedSession.day === day) return;
+    // Update session day in Supabase
+    const updatePayload: Database['public']['Tables']['plan_sessions']['Update'] = { day };
+    await supabase
+      .from('plan_sessions')
+      .update(updatePayload)
+      .eq('id', draggedSession.id as string);
+    setDraggedSession(null);
+    setDragOverDay(null);
+    window.location.reload();
+  };
 
   return (
     <div className="space-y-8">
@@ -209,8 +306,11 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, o
             initial={{ opacity: 0, y: 20 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.3, delay: idx * 0.05 }}
-            className={`bg-black/30 rounded-lg border border-white/10 overflow-hidden min-h-[180px] flex flex-col w-full`}
+            className={`bg-black/30 rounded-lg border border-white/10 overflow-hidden min-h-[180px] flex flex-col w-full ${dragOverDay === day ? 'ring-2 ring-primary' : ''}`}
             style={{ minWidth: 0 }}
+            onDragOver={e => handleDragOver(day, e)}
+            onDrop={() => handleDrop(day)}
+            onDragLeave={() => setDragOverDay(null)}
           >
             <div className="bg-black/50 p-2 text-center font-barlow font-semibold border-b border-white/10">
               {day}
@@ -219,69 +319,46 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, o
             <div className="p-3 space-y-3 flex-1">
               {dayMap[day].length === 0 ? (
                 <div className="text-gray-500 text-sm font-barlow text-center">Rest / No workout</div>
-              ) : (
-                dayMap[day].map((session, i) => (
-                  <div
-                    key={i}
-                    className={`p-3 rounded-lg ${getWorkoutColor(session.type, session.focus || '')}`}
-                  >
-                    <div className="font-barlow font-semibold text-sm mb-1 capitalize">{session.type} - {(session.focus || '')}</div>
-                    {Array.isArray(session.description) ? (
-                      <ul className="text-xs text-gray-300 font-barlow list-disc pl-4">
-                        {(session.description as any[]).map((ex: any, j: number) => (
-                          <li key={j}>
-                            {ex.name ? <span className="font-bold">{ex.name}</span> : null}
-                            {ex.equipment ? ` (${ex.equipment})` : ''}
-                            {ex.sets ? ` - ${ex.sets} sets` : ''}
-                            {ex.reps ? ` x ${ex.reps}` : ''}
-                          </li>
-                        ))}
-                      </ul>
-                    ) : (
-                      <div className="text-xs text-gray-300 font-barlow">{typeof session.description === 'string' ? session.description : ''}</div>
-                    )}
-                    {/* Move session dropdown */}
-                    <div className="mt-2 flex items-center gap-2">
-                      <label className="text-xs text-gray-400 mr-2">Move to:</label>
-                      <select
-                        value={session.day || ''}
-                        onChange={async (e) => {
-                          const newDay = e.target.value;
-                          if (!session.id) return;
-                          const rawUpdate = {
-                            day: newDay ?? undefined,
-                          };
-                          const updatePayload = { ...omitUndefined(rawUpdate) } as PlanSessionUpdate;
-                          await supabase
-                            .from("plan_sessions")
-                            .update(updatePayload)
-                            .eq("id", session.id)
-                            .then(({ error }) => {
-                              if (error) {
-                                console.error('Supabase update error:', error);
-                              }
-                            });
-                          window.location.reload();
-                        }}
-                        className="bg-black/30 border border-white/10 rounded px-2 py-1 text-xs"
-                      >
-                        {DAYS_ORDER.map((d) => (
-                          <option key={d} value={d}>
-                            {d}
-                          </option>
-                        ))}
-                      </select>
-                      <button
-                        className="ml-2 px-3 py-1 bg-primary text-black rounded text-xs font-bold"
-                        onClick={() => setLogModalSession(session)}
-                        type="button"
-                      >
-                        Log Workout
-                      </button>
+              ) :
+                dayMap[day].map((session, i) => {
+                  // Check if session is logged or skipped
+                  const log = workoutLogs.find(log => log.session_id === session.id);
+                  const isLogged = !!log && !log.skipped;
+                  const isSkipped = !!log && log.skipped;
+                  const isClosed = !!log;
+                  return (
+                    <div
+                      key={i}
+                      className={`p-3 rounded-lg ${getWorkoutColor(session.type, session.focus || '')} relative ${draggedSession?.id === session.id ? 'opacity-50' : ''}`}
+                      draggable={!isClosed}
+                      onDoubleClick={() => !isClosed && setLogModalSession(session)}
+                      style={{ cursor: isClosed ? 'not-allowed' : 'grab', opacity: isClosed ? 0.6 : 1 }}
+                      onDragStart={() => !isClosed && handleDragStart(session)}
+                      onDragEnd={handleDragEnd}
+                    >
+                      <div className="font-barlow font-semibold text-sm mb-1 capitalize flex items-center gap-2">
+                        {session.type} - {(session.focus || '')}
+                        {isLogged && <span className="ml-2 text-green-400" title="Workout logged">✔</span>}
+                        {isSkipped && <span className="ml-2 text-red-500" title="Workout skipped">❌</span>}
+                      </div>
+                      {Array.isArray(session.description) ? (
+                        <ul className="text-xs text-gray-300 font-barlow list-disc pl-4">
+                          {(session.description as any[]).map((ex: any, j: number) => (
+                            <li key={j}>
+                              {ex.name ? <span className="font-bold">{ex.name}</span> : null}
+                              {ex.equipment ? ` (${ex.equipment})` : ''}
+                              {ex.sets ? ` - ${ex.sets} sets` : ''}
+                              {ex.reps ? ` x ${ex.reps}` : ''}
+                            </li>
+                          ))}
+                        </ul>
+                      ) : (
+                        <div className="text-xs text-gray-300 font-barlow">{typeof session.description === 'string' ? session.description : ''}</div>
+                      )}
                     </div>
-                  </div>
-                ))
-              )}
+                  );
+                })
+              }
             </div>
           </motion.div>
         ))}
@@ -290,7 +367,7 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, o
       {week.weekly_tips && (
         <div className="bg-black/30 rounded-lg p-4 border border-primary/30 mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
           <div>
-            <h3 className="text-lg font-exo font-bold mb-2 text-primary">Tips for Week {week.id}</h3>
+            <h3 className="text-lg font-exo font-bold mb-2 text-primary">Tips for This Week</h3>
             <ul className="list-disc pl-6 text-primary font-barlow">
               {(week.weekly_tips as string[]).map((tip: string, idx: number) => (
                 <li key={idx}>{tip}</li>

@@ -16,6 +16,28 @@ import Logo from "@/components/ui/logo"
 type Profile = Database['public']['Tables']['profiles']['Row']
 type TrainingPlan = Database['public']['Tables']['training_plans']['Row']
 type TrainingPlanUpdate = Database['public']['Tables']['training_plans']['Update']
+type PlanWeek = Database['public']['Tables']['plan_weeks']['Row']
+type PlanSession = Database['public']['Tables']['plan_sessions']['Row']
+
+// Define the expected plan summary structure from plan_data
+type PlanSummary = {
+  estimated_total_plan_mileage: number;
+  estimated_plan_duration_weeks: number;
+  block_run_mileage: number;
+  strength_focus_summary: string;
+}
+
+// Type guard to check if an object matches PlanSummary structure
+function isPlanSummary(obj: unknown): obj is PlanSummary {
+  return (
+    typeof obj === 'object' &&
+    obj !== null &&
+    'estimated_total_plan_mileage' in obj &&
+    'estimated_plan_duration_weeks' in obj &&
+    'block_run_mileage' in obj &&
+    'strength_focus_summary' in obj
+  )
+}
 
 export default function PlanPage() {
   const [showOnboarding, setShowOnboarding] = useState(false)
@@ -27,53 +49,133 @@ export default function PlanPage() {
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"])
   const router = useRouter()
   const [pendingAction, setPendingAction] = useState<null | 'restart' | 'new'>(null)
-  const [planSummary, setPlanSummary] = useState(null);
-  const [weeks, setWeeks] = useState([]);
-  const [sessions, setSessions] = useState([]);
+  const [planSummary, setPlanSummary] = useState<PlanSummary | null>(null)
+  const [weeks, setWeeks] = useState<PlanWeek[]>([])
+  const [sessions, setSessions] = useState<PlanSession[]>([])
+  const [workoutLogs, setWorkoutLogs] = useState<any[]>([])
 
   useEffect(() => {
     const fetchPlan = async () => {
-      setLoading(true);
-      const { data: { session } } = await supabase.auth.getSession();
+      setLoading(true)
+      const { data: { session } } = await supabase.auth.getSession()
       if (!session?.user?.id) {
-        router.replace('/auth/login');
-        return;
+        router.replace('/auth/login')
+        return
       }
-      // 1. Get active plan
-      const { data: plan } = await supabase
+      // 1. Get most recent active plan
+      const userId = session.user.id
+      if (!userId) {
+        setPlanSummary(null)
+        setWeeks([])
+        setSessions([])
+        setLoading(false)
+        return
+      }
+      const { data: plan, error: planError } = await supabase
         .from('training_plans')
         .select('*')
-        .eq('user_id', session.user.id)
-        .eq('status', 'active')
+        .eq('user_id', userId as string)
+        .eq('status', 'active' as string)
         .order('generated_at', { ascending: false })
         .limit(1)
-        .single();
-      if (!plan) {
-        setLoading(false);
-        return;
-      }
-      setPlanSummary(plan.plan_summary);
+        .single()
 
-      // 2. Get weeks
-      const { data: weekRows } = await supabase
+      if (planError) {
+        console.error('Supabase planError:', planError)
+      }
+      if (!plan || typeof plan !== 'object' || !('plan_data' in plan) || !('id' in plan) || !plan.id) {
+        setPlanSummary(null)
+        setWeeks([])
+        setSessions([])
+        setLoading(false)
+        return
+      }
+      const typedPlan = plan as TrainingPlan
+
+      // Extract plan summary from plan_data
+      const planData = typedPlan.plan_data as { plan_summary?: PlanSummary }
+      const summary = planData?.plan_summary && isPlanSummary(planData.plan_summary)
+        ? planData.plan_summary
+        : null
+
+      // 2. Fetch weeks and sessions for this plan
+      const planId = typedPlan.id
+      if (!planId) {
+        setPlanSummary(summary)
+        setWeeks([])
+        setSessions([])
+        setLoading(false)
+        return
+      }
+      const { data: weeks, error: weeksError } = await supabase
         .from('plan_weeks')
         .select('*')
-        .eq('plan_id', plan.id)
-        .order('week_number', { ascending: true });
-      setWeeks(weekRows);
+        .eq('plan_id', planId as string)
+        .order('week_number', { ascending: true })
 
-      // 3. Get sessions
-      const weekIds = weekRows.map(w => w.id);
-      const { data: sessionRows } = await supabase
+      if (weeksError) {
+        console.error('Supabase weeksError:', weeksError)
+      }
+      if (!weeks || !Array.isArray(weeks)) {
+        setPlanSummary(summary)
+        setWeeks([])
+        setSessions([])
+        setLoading(false)
+        return
+      }
+      // Only use week ids that are strings (filter out nulls)
+      const validWeeks = (weeks as PlanWeek[]).filter(w => w && typeof w.id === 'string')
+      const weekIds = validWeeks.map(w => w.id).filter((id): id is string => !!id) as string[]
+      if (weekIds.length === 0) {
+        setPlanSummary(summary)
+        setWeeks(validWeeks)
+        setSessions([])
+        setLoading(false)
+        return
+      }
+      const { data: sessions, error: sessionsError } = await supabase
         .from('plan_sessions')
         .select('*')
-        .in('week_id', weekIds);
-      setSessions(sessionRows);
+        .in('week_id', weekIds as string[])
 
-      setLoading(false);
-    };
-    fetchPlan();
-  }, [router]);
+      if (sessionsError) {
+        console.error('Supabase sessionsError:', sessionsError)
+      }
+      if (!sessions || !Array.isArray(sessions)) {
+        setPlanSummary(summary)
+        setWeeks(validWeeks)
+        setSessions([])
+        setLoading(false)
+        return
+      }
+      // Filter out any error objects or nulls
+      const validSessions = (sessions as PlanSession[]).filter(s => s && typeof s.id === 'string')
+
+      // Fetch workout logs for these sessions and user
+      let logs: any[] = [];
+      if (validSessions.length > 0) {
+        const sessionIds = validSessions.map(s => s.id);
+        const { data: logsData, error: logsError } = await supabase
+          .from('workout_logs')
+          .select('*')
+          .in('session_id', sessionIds)
+          .eq('user_id', userId);
+        if (logsError) {
+          console.error('Supabase workoutLogs error:', logsError);
+        }
+        if (logsData && Array.isArray(logsData)) {
+          logs = logsData;
+        }
+      }
+      setWorkoutLogs(logs);
+
+      setPlanSummary(summary)
+      setWeeks(validWeeks)
+      setSessions(validSessions)
+      setLoading(false)
+    }
+    fetchPlan()
+  }, [])
 
   const handlePlanAction = (action: 'restart' | 'new') => {
     setPendingAction(action)
@@ -81,50 +183,35 @@ export default function PlanPage() {
   }
 
   const handleConfirmPlanAction = async () => {
-    if (!currentPlan) return;
-    // Only cancel plan for 'new' action
     if (pendingAction === 'new') {
-      if (!currentPlan?.id) throw new Error('Current plan ID is null');
-      const { error } = await (supabase
-        .from('training_plans')
-        .update({ status: 'cancelled' } as TrainingPlanUpdate)
-        .eq('id', currentPlan.id));
-      if (error) {
-        console.error('Error cancelling plan:', error);
-        setShowConfirmModal(false);
-        setPendingAction(null);
-        return;
+      if (currentPlan && currentPlan.id) {
+        const { error } = await supabase
+          .from('training_plans')
+          .update({ status: 'cancelled' } as any)
+          .eq('id', currentPlan.id as any)
+        if (error) {
+          console.error('Error cancelling plan:', error)
+          setShowConfirmModal(false)
+          setPendingAction(null)
+          return
+        }
+        setCurrentPlan(null)
       }
-      setCurrentPlan(null);
-      setShowOnboarding(true);
+      setShowOnboarding(true)
     }
-    setShowConfirmModal(false);
-    setPendingAction(null);
+    setShowConfirmModal(false)
+    setPendingAction(null)
   }
 
-  const handleWizardClose = (newPlan: TrainingPlan | null) => {
+  const handleWizardClose = (newPlan: any) => {
     setShowOnboarding(false)
     if (newPlan) {
-      console.log('Setting new plan:', newPlan)
-      // Ensure plan_data is properly structured
-      const planData = {
-        ...newPlan,
-        plan_data: typeof newPlan.plan_data === 'object' && newPlan.plan_data !== null
-          ? newPlan.plan_data
-          : {
-              choices: [{
-                message: {
-                  content: typeof newPlan.plan_data === 'object' && newPlan.plan_data !== null
-                    ? (newPlan.plan_data as any).text || ''
-                    : ''
-                }
-              }],
-              text: typeof newPlan.plan_data === 'object' && newPlan.plan_data !== null
-                ? (newPlan.plan_data as any).text || ''
-                : ''
-            }
-      }
-      setCurrentPlan(planData)
+      setCurrentPlan(newPlan);
+      setPlanSummary(newPlan.planSummary || null);
+      setWeeks(newPlan.weeks || []);
+      setSessions(newPlan.sessions || []);
+      setWorkoutLogs([]); // No logs for a new plan yet
+      router.refresh();   // Force a full data refresh
     }
   }
 
@@ -172,6 +259,7 @@ export default function PlanPage() {
             planSummary={planSummary}
             weeks={weeks}
             sessions={sessions}
+            workoutLogs={workoutLogs}
             onNewPlan={() => handlePlanAction('new')}
           />
         ) : (

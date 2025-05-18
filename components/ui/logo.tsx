@@ -1,6 +1,7 @@
 "use client"
 
 import Link from "next/link"
+import Image from "next/image"
 import { motion } from "framer-motion"
 
 interface LogoProps {
@@ -11,17 +12,23 @@ interface LogoProps {
 
 export default function Logo({ className = "", showGlow = true, href = "/" }: LogoProps) {
   const LogoContent = () => (
-    <motion.span
-      className={`font-exo font-black tracking-wider text-primary
-        transition-all duration-300 hover:text-primary/90
+    <motion.div
+      className={`relative transition-all duration-300
         ${showGlow ? 'drop-shadow-[0_0_8px_rgba(0,255,209,0.5)]' : ''}
         hover:drop-shadow-[0_0_10px_rgba(0,255,209,0.7)]
         ${className}`}
       whileHover={{ scale: 1.05 }}
       whileTap={{ scale: 0.95 }}
     >
-      BHAAG
-    </motion.span>
+      <Image
+        src="/BHAAG_strava.png"
+        alt="BHAAG Logo"
+        width={120}
+        height={40}
+        className="object-contain"
+        priority
+      />
+    </motion.div>
   )
 
   if (href) {

@@ -234,7 +234,7 @@ export default function PlanPage() {
       {/* Persistent Navbar */}
       <Navbar onLoginClick={() => {}} />
 
-      {/* Dashboard Button */}
+      {/* Dashboard Button 
       <div className="container mx-auto px-6 pt-24 pb-2 flex items-center">
         <Button
           variant="outline"
@@ -244,7 +244,7 @@ export default function PlanPage() {
           <Logo className="text-xl" showGlow={false} href={null} />
           <span className="font-barlow font-semibold">Dashboard</span>
         </Button>
-      </div>
+      </div>*/}
 
       {/* Background elements */}
       <motion.div className="fixed inset-0 z-0 opacity-20 pointer-events-none" style={{ y: backgroundY }}>

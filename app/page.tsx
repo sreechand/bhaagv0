@@ -61,7 +61,7 @@ export default function Home() {
         <SamplePlan onPreviewClick={() => setShowSamplePlanModal(true)} />
         <FAQ />
         <ComingSoon />
-        <Footer />
+     
       </div>
 
       {showSamplePlanModal && (

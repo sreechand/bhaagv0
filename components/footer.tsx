@@ -51,8 +51,8 @@ export default function Footer() {
             >
               <h4 className="text-xl font-exo font-bold mb-4">Contact</h4>
               <ul className="space-y-2">
-                <li className="text-gray-300 font-barlow">support@bhaag.one</li>
-                <li className="text-gray-300 font-barlow">+1 (555) 123-4567</li>
+                <li className="text-gray-300 font-barlow">runwith@bhaag.one</li>
+                <li className="text-gray-300 font-barlow">+91 95133 92677</li>
               </ul>
             </motion.div>
           </div>

@@ -175,9 +175,11 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
             active={activeSection === "faq"} 
             onClick={() => scrollToSection("faq")} 
           />
-          <Link href="/about" passHref legacyBehavior>
-            <a className="text-gray-300 hover:text-primary font-barlow transition-colors">About</a>
-          </Link>
+          <NavLink 
+            href="/about" 
+            label="About" 
+            active={pathname === "/about"} 
+          />
           <NavLink
             href="#sample"
             label="Try a Sample Plan"
@@ -248,13 +250,30 @@ interface NavLinkProps {
 }
 
 function NavLink({ href, label, active, onClick }: NavLinkProps) {
+  // If it's a hash link (starts with #), use button with onClick
+  if (href.startsWith('#')) {
+    return (
+      <button
+        onClick={onClick}
+        className={`relative font-barlow font-semibold transition-colors
+          ${active ? "text-primary" : "text-white hover:text-primary/80"}`}
+      >
+        {label}
+        {active && (
+          <motion.span
+            className="absolute -bottom-1 left-0 right-0 h-0.5 bg-primary"
+            layoutId="activeSection"
+            transition={{ type: "spring", stiffness: 380, damping: 30 }}
+          />
+        )}
+      </button>
+    )
+  }
+
+  // For regular links (like /about), use Next.js Link
   return (
-    <button
-      onClick={onClick}
-      className={`relative font-barlow font-semibold transition-colors duration-300 ${
-        active ? "text-primary" : "text-white hover:text-primary/80"
-      }`}
-    >
+    <Link href={href} className={`relative font-barlow font-semibold transition-colors
+      ${active ? "text-primary" : "text-white hover:text-primary/80"}`}>
       {label}
       {active && (
         <motion.span
@@ -263,7 +282,7 @@ function NavLink({ href, label, active, onClick }: NavLinkProps) {
           transition={{ type: "spring", stiffness: 380, damping: 30 }}
         />
       )}
-    </button>
+    </Link>
   )
 }
 

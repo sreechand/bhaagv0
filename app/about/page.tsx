@@ -17,7 +17,7 @@ interface TeamMember {
 const teamMembers: TeamMember[] = [
   {
     name: "Manish Arora",
-    role: "Founder & Lead Developer",
+    role: "Founder & Lead AI Developer",
     bio: "Runner | Automation Engineering Leader | Vibe Coding Enthusiast",
     image: "/team/Manish-Arora.png", // You'll need to add these images to the public/team directory
     linkedin: "www.linkedin.com/in/manish-arora-020b8651",
@@ -25,7 +25,7 @@ const teamMembers: TeamMember[] = [
   },
   {
     name: "Sreechand Tavva",
-    role: "Full Stack Developer",
+    role: "Full Frontend Developer",
     bio: "Cyclist | Product Manager | Vibe Coding Enthusiast ",
     image: "/team/Sreechand-Tavva.png",
     linkedin: "https://linkedin.com/in/sreechand",
@@ -33,18 +33,18 @@ const teamMembers: TeamMember[] = [
   },
   {
     name: "Sandeep Singh Rajput",
-    role: "Role",
-    bio: "Senior Data Analyst",
+    role: "Datbase and Voice Developer",
+    bio: "Swimmer | Senior Data Analyst| AI whisperer",
     image: "/team/Sandeep-Singh-Rajput.png",
     linkedin: "https://www.linkedin.com/in/sandeepsingh1910/",
-    github: "https://github.com/member3"
+    github: "https://github.com/ssingh288"
   },
   {
     name: "Abhishek Vyas",
-    role: "Role",
-    bio: "Bio for team member 4",
+    role: "Full Stack Developer",
+    bio: "Gear Head | Founder | Vibe Coding Enthusiast",
     image: "/team/Abhishek-Vyas.png",
-    linkedin: "https://linkedin.com/in/member4",
+    linkedin: "https://www.linkedin.com/in/abhishek-vyas-05032715",
     github: "https://github.com/member4"
   }
 ]
@@ -83,11 +83,9 @@ export default function AboutPage() {
             <h2 className="text-3xl font-exo font-bold mb-6">Built with Build W/ AI</h2>
             <div className="prose prose-invert max-w-none">
               <p className="text-lg text-gray-300 mb-4">
-                BHAAG is proud to be part of the Build W/ AI bootcamp, an innovative program that brings together developers, designers, and entrepreneurs to create AI-powered solutions. This bootcamp has provided us with the resources, mentorship, and community support needed to bring our vision of an AI-powered running coach to life.
+                BHAAG is proud to be part of the Build W/ AI program. A Build School—a 12-week, hands-on program designed to help anyone, regardless of background, build real-world AI products using no-code tools. The experience includes live expert-led sessions, practical projects, and an amazing community. This program has provided us with the resources, mentorship, and community support needed to bring our vision of an AI-powered running coach to life.
               </p>
-              <p className="text-lg text-gray-300 mb-6">
-                Through Build W/ AI, we've gained access to cutting-edge AI technologies and best practices, enabling us to create a more intelligent and personalized running experience. The bootcamp's focus on practical AI implementation has been instrumental in shaping BHAAG's development.
-              </p>
+
               <Link href="https://www.buildschool.net/" target="_blank" rel="noopener noreferrer">
                 <Button variant="outline" className="text-primary border-primary hover:bg-primary/10">
                   Learn More About Build W/ AI

@@ -34,6 +34,7 @@ export default function Footer() {
               <h4 className="text-xl font-exo font-bold mb-4">Links</h4>
               <ul className="space-y-2">
                 <FooterLink href="#why-bhaag">How it Works</FooterLink>
+                <FooterLink href="/about">About Us</FooterLink>
                 <FooterLink href="#faq">FAQ</FooterLink>
                 <FooterLink href="#sample">Try a Sample Plan</FooterLink>
                 <FooterLink href="#">Privacy Policy</FooterLink>
@@ -50,7 +51,7 @@ export default function Footer() {
             >
               <h4 className="text-xl font-exo font-bold mb-4">Contact</h4>
               <ul className="space-y-2">
-                <li className="text-gray-300 font-barlow">support@bhaag.ai</li>
+                <li className="text-gray-300 font-barlow">support@bhaag.one</li>
                 <li className="text-gray-300 font-barlow">+1 (555) 123-4567</li>
               </ul>
             </motion.div>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next"
 import { Inter, Barlow, Exo_2 } from "next/font/google"
 import { ThemeProvider } from "@/components/theme-provider"
+import Footer from "@/components/footer"
 import "./globals.css"
 
 const inter = Inter({
@@ -25,7 +26,7 @@ const exo = Exo_2({
 export const metadata = {
   title: "BHAAG - AI-Powered Running Coach",
   description: "Your personal AI-powered running coach that evolves with you.",
-  generator: 'v0.dev'
+  generator: 'cursor + Claude + ChatGPT'
 }
 
 export default function RootLayout({
@@ -45,7 +46,12 @@ export default function RootLayout({
           enableSystem={false}
           disableTransitionOnChange
         >
-          {children}
+          <div className="flex flex-col min-h-screen">
+            <main className="flex-grow">
+              {children}
+            </main>
+            <Footer />
+          </div>
         </ThemeProvider>
       </body>
     </html>

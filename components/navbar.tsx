@@ -175,6 +175,9 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
             active={activeSection === "faq"} 
             onClick={() => scrollToSection("faq")} 
           />
+          <Link href="/about" passHref legacyBehavior>
+            <a className="text-gray-300 hover:text-primary font-barlow transition-colors">About</a>
+          </Link>
           <NavLink
             href="#sample"
             label="Try a Sample Plan"
@@ -216,6 +219,7 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
               <>
             <MobileNavLink href="#why-bhaag" label="How it Works" onClick={() => scrollToSection("why-bhaag")} />
             <MobileNavLink href="#faq" label="FAQ" onClick={() => scrollToSection("faq")} />
+            <MobileNavLink href="/about" label="About" />
             <MobileNavLink href="#sample" label="Try a Sample Plan" onClick={() => scrollToSection("sample")} />
               </>
             )}
@@ -265,12 +269,14 @@ function NavLink({ href, label, active, onClick }: NavLinkProps) {
 
 function MobileNavLink({ href, label, onClick }: NavLinkProps) {
   return (
-    <button
-      onClick={onClick}
-      className="block w-full py-2 text-lg font-barlow font-medium text-left text-white hover:text-primary transition-colors duration-300"
-    >
-      {label}
-    </button>
+    <Link href={href} passHref legacyBehavior>
+      <a
+        className="block px-4 py-2 text-lg text-gray-300 hover:text-primary font-barlow transition-colors"
+        onClick={onClick}
+      >
+        {label}
+      </a>
+    </Link>
   )
 }
 

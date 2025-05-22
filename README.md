@@ -26,3 +26,7 @@ Storage: Handles file storage (e.g., user avatars)
 Provides the AI model (GPT-4 Turbo) used for generating personalized training plans
 Processes structured prompts to create detailed, adaptive training schedules
 Returns JSON-formatted plan data that is parsed and stored in the database
+
+**Growth School**
+Developed as part of the Build W/ AI program by Growth School
+By Manish, Sandeep, Sreechand, Abhisehk

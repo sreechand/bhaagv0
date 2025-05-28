@@ -279,6 +279,8 @@ export default function PlanPage() {
             >
               Generate New Plan
             </Button>
+
+            
             {/* Warning box at the bottom */}
             <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-full max-w-2xl">
               <div className="mt-16 p-4 bg-black/30 border border-yellow-500/30 rounded-lg flex items-start gap-3 justify-center">
@@ -314,3 +316,23 @@ export default function PlanPage() {
     </div>
   )
 }
+
+
+
+
+/* add this  code
+
+
+{showSamplePlanModal && (
+<SamplePlanModal onClose={() => setShowSamplePlanModal(false)} />
+)}
+{showStravaRunModal && (
+<StravaRunModal
+isOpen={showStravaRunModal}
+onClose={() => setShowStravaRunModal(false)}
+onImport={() => { setShowStravaRunModal(false); }}
+onManualLog={() => { setShowStravaRunModal(false); }}
+onSkip={() => { setShowStravaRunModal(false); }}
+/>
+)}
+*/

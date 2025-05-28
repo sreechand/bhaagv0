@@ -252,7 +252,10 @@ export default function PlanPage() {
       </motion.div>
       <div className="absolute top-1/4 left-1/4 w-64 h-64 rounded-full bg-primary/10 filter blur-3xl"></div>
       <div className="absolute bottom-1/4 right-1/4 w-64 h-64 rounded-full bg-secondary/10 filter blur-3xl"></div>
-
+<br></br>
+<br></br>
+<br></br>
+<br></br>
       <div className="container mx-auto px-6 py-12 relative z-10">
         {planSummary && weeks.length > 0 ? (
           <WeeklyPlan 
@@ -276,6 +279,8 @@ export default function PlanPage() {
             >
               Generate New Plan
             </Button>
+
+            
             {/* Warning box at the bottom */}
             <div className="absolute left-1/2 -translate-x-1/2 bottom-0 w-full max-w-2xl">
               <div className="mt-16 p-4 bg-black/30 border border-yellow-500/30 rounded-lg flex items-start gap-3 justify-center">
@@ -311,3 +316,23 @@ export default function PlanPage() {
     </div>
   )
 }
+
+
+
+
+/* add this  code
+
+
+{showSamplePlanModal && (
+<SamplePlanModal onClose={() => setShowSamplePlanModal(false)} />
+)}
+{showStravaRunModal && (
+<StravaRunModal
+isOpen={showStravaRunModal}
+onClose={() => setShowStravaRunModal(false)}
+onImport={() => { setShowStravaRunModal(false); }}
+onManualLog={() => { setShowStravaRunModal(false); }}
+onSkip={() => { setShowStravaRunModal(false); }}
+/>
+)}
+*/

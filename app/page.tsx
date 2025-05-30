@@ -13,10 +13,12 @@ import FAQ from "@/components/faq"
 import ComingSoon from "@/components/coming-soon"
 import Footer from "@/components/footer"
 import SamplePlanModal from "@/components/sample-plan-modal"
+import { StravaRunModal } from "@/components/Modal"
 import { supabase } from "@/lib/supabaseClient"
 
 export default function Home() {
   const [showSamplePlanModal, setShowSamplePlanModal] = useState(false)
+  const [showStravaRunModal, setShowStravaRunModal] = useState(false)
   const router = useRouter()
   const { scrollYProgress } = useScroll()
   const backgroundY = useTransform(scrollYProgress, [0, 1], ["0%", "20%"])
@@ -61,11 +63,27 @@ export default function Home() {
         <SamplePlan onPreviewClick={() => setShowSamplePlanModal(true)} />
         <FAQ />
         <ComingSoon />
-     
+        <div className="flex justify-center my-8">
+          <button
+            onClick={() => setShowStravaRunModal(true)}
+            className="px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 shadow-lg shadow-orange-700/20 transform transition-all duration-200 hover:translate-y-[-1px] active:translate-y-[1px]"
+          >
+            Show Strava Run Modal
+          </button>
+        </div>
       </div>
 
       {showSamplePlanModal && (
         <SamplePlanModal onClose={() => setShowSamplePlanModal(false)} />
+      )}
+      {showStravaRunModal && (
+        <StravaRunModal
+          isOpen={showStravaRunModal}
+          onClose={() => setShowStravaRunModal(false)}
+          onImport={() => { setShowStravaRunModal(false); }}
+          onManualLog={() => { setShowStravaRunModal(false); }}
+          onSkip={() => { setShowStravaRunModal(false); }}
+        />
       )}
     </main>
   )

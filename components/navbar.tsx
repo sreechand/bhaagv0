@@ -156,41 +156,57 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
 
         {/* Desktop Navigation */}
         <motion.nav
-          className="hidden md:flex items-center space-x-8"
+          className="hidden md:flex items-center justify-between w-full"
           initial={{ opacity: 0, y: -20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.5, delay: 0.2 }}
         >
-          {!isDashboard && (
-            <>
-          <NavLink
-            href="#why-bhaag"
-            label="How it Works"
-            active={activeSection === "why-bhaag"}
-            onClick={() => scrollToSection("why-bhaag")}
-          />
-          <NavLink 
-            href="#faq" 
-            label="FAQ" 
-            active={activeSection === "faq"} 
-            onClick={() => scrollToSection("faq")} 
-          />
-          <NavLink 
-            href="/about" 
-            label="About" 
-            active={pathname === "/about"} 
-          />
-          <NavLink
-            href="#sample"
-            label="Try a Sample Plan"
-            active={activeSection === "sample"}
-            onClick={() => scrollToSection("sample")}
-          />
-            </>
-          )}
-          <motion.div whileHover={{ scale: 1.05 }} whileTap={{ scale: 0.95 }}>
+          <div className="flex items-center space-x-8">
+            {!isDashboard && (
+              <>
+                <NavLink
+                  href="#why-bhaag"
+                  label="How it Works"
+                  active={activeSection === "why-bhaag"}
+                  onClick={() => scrollToSection("why-bhaag")}
+                />
+                <NavLink 
+                  href="#faq" 
+                  label="FAQ" 
+                  active={activeSection === "faq"} 
+                  onClick={() => scrollToSection("faq")} 
+                />
+                <NavLink 
+                  href="/about" 
+                  label="About" 
+                  active={pathname === "/about"} 
+                />
+                <NavLink
+                  href="#sample"
+                  label="Try a Sample Plan"
+                  active={activeSection === "sample"}
+                  onClick={() => scrollToSection("sample")}
+                />
+              </>
+            )}
+          </div>
+          <motion.div
+            className="flex flex-row items-center ml-8"
+            whileHover={{ scale: 1.05 }}
+            whileTap={{ scale: 0.95 }}
+          >
             {isLoggedIn ? (
-              <UserAvatar onSignOut={handleSignOut} />
+              <>
+                {pathname === "/dashboard/plan" && (
+                  <a
+                    href={`https://www.strava.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID}&response_type=code&redirect_uri=http://localhost:3000/api/strava/callback&approval_prompt=force&scope=read,activity:read_all`}
+                    className="mr-4 px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition"
+                  >
+                    Connect to Strava
+                  </a>
+                )}
+                <UserAvatar onSignOut={handleSignOut} />
+              </>
             ) : (
               <Link href="/auth/login">
                 <Button variant="default">Login</Button>

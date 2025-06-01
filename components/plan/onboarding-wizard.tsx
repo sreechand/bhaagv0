@@ -1,11 +1,14 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { motion, AnimatePresence } from "framer-motion"
 import { Button } from "@/components/ui/button"
 import { X } from "lucide-react"
 import RunningProfileStep from "./wizard-steps/running-profile-step"
 import StrengthSetupStep from "./wizard-steps/strength-setup-step"
+import Confetti from 'react-confetti'
+import { useRouter } from 'next/navigation'
+import { createPortal } from 'react-dom'
 
 interface OnboardingWizardProps {
   onClose: (plan: any) => void
@@ -35,8 +38,25 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
   })
   const [errorMsg, setErrorMsg] = useState<string | null>(null)
   const [loading, setLoading] = useState(false)
+  const [showCelebration, setShowCelebration] = useState(false)
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 })
+  const router = useRouter()
 
   const totalSteps = 2
+
+  // Set window size for confetti
+  useEffect(() => {
+    function updateSize() {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    }
+    if (showCelebration) {
+      updateSize();
+      window.addEventListener('resize', updateSize);
+    }
+    return () => {
+      window.removeEventListener('resize', updateSize);
+    };
+  }, [showCelebration]);
 
   const updateFormData = (data: Partial<typeof formData>) => {
     setFormData((prev) => ({ ...prev, ...data }))
@@ -70,8 +90,8 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
       recentRace: formData.recentRaceDistance && (formData.recentRaceTime.hours || formData.recentRaceTime.minutes || formData.recentRaceTime.seconds)
         ? `${formData.recentRaceDistance} ${formData.recentRaceTime.hours || '00'}:${formData.recentRaceTime.minutes || '00'}:${formData.recentRaceTime.seconds || '00'}`
         : '',
-      goalTime: formData.goalRaceDistance && (formData.goalRaceTime.hours || formData.goalRaceTime.minutes || formData.goalRaceTime.seconds)
-        ? `${formData.goalRaceDistance} ${formData.goalRaceTime.hours || '00'}:${formData.goalRaceTime.minutes || '00'}:${formData.goalRaceTime.seconds || '00'}`
+      goalTime: (formData.goalRaceTime.hours || formData.goalRaceTime.minutes || formData.goalRaceTime.seconds)
+        ? `${formData.goalRaceTime.hours || '00'}:${formData.goalRaceTime.minutes || '00'}:${formData.goalRaceTime.seconds || '00'}`
         : '',
       paceZones: formData.paceZones || '',
       longRunDay: formData.longRunDay || '',
@@ -93,16 +113,19 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
         throw new Error(errorData?.error || 'Failed to generate plan')
       }
       const data = await response.json()
-      console.log('Generated plan data:', data)
       if (!data.plan) {
         throw new Error('No plan data received from server')
       }
-      // Close the wizard and let the parent component handle the plan update
-      onClose(data.plan)
+      setLoading(false)
+      setShowCelebration(true)
+      setTimeout(() => {
+        setShowCelebration(false)
+        onClose(data.plan)
+        window.location.reload();
+      }, 2000)
     } catch (error: any) {
       console.error('Plan generation error:', error)
       setErrorMsg(error.message || 'Something went wrong. Please try again.')
-    } finally {
       setLoading(false)
     }
   }
@@ -115,6 +138,19 @@ export default function OnboardingWizard({ onClose }: OnboardingWizardProps) {
         animate={{ opacity: 1 }}
         exit={{ opacity: 0 }}
       >
+        {/* Loading overlay */}
+        {loading && (
+          <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60">
+            <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-orange-500"></div>
+            <span className="ml-4 text-white text-xl font-bold">Generating your plan...</span>
+          </div>
+        )}
+        {/* Celebration confetti */}
+        {showCelebration && windowSize.width > 0 && windowSize.height > 0 &&
+          createPortal(
+            <Confetti width={windowSize.width} height={windowSize.height} />, document.body
+          )
+        }
         <motion.div
           className="relative bg-gradient-to-b from-[#0A0A0A] to-[#1C1C2E] rounded-xl max-w-4xl w-full border border-white/10 overflow-hidden max-h-[90vh] flex flex-col"
           initial={{ scale: 0.9, opacity: 0 }}

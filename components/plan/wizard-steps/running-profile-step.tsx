@@ -237,57 +237,39 @@ export default function RunningProfileStep({ formData, updateFormData }: Running
             </div>
           </div>
 
-          {/* Goal Race Time */}
+          {/* Goal Race Time (if any) - only time, no distance */}
           <div className="space-y-3">
             <Label className="text-md font-barlow">Goal Race Time (if any)</Label>
-            <div className="flex flex-wrap gap-4 items-center">
-              <div className="flex gap-2 items-center">
-                <Input
-                  type="number"
-                  min="0"
-                  max="99"
-                  placeholder="HH"
-                  value={formData.goalRaceTime.hours}
-                  onChange={(e) => handleTimeChange("goalRaceTime", "hours", e.target.value)}
-                  className="w-16 bg-black/30 border-white/20"
-                />
-                <span className="text-xl">:</span>
-                <Input
-                  type="number"
-                  min="0"
-                  max="59"
-                  placeholder="MM"
-                  value={formData.goalRaceTime.minutes}
-                  onChange={(e) => handleTimeChange("goalRaceTime", "minutes", e.target.value)}
-                  className="w-16 bg-black/30 border-white/20"
-                />
-                <span className="text-xl">:</span>
-                <Input
-                  type="number"
-                  min="0"
-                  max="59"
-                  placeholder="SS"
-                  value={formData.goalRaceTime.seconds}
-                  onChange={(e) => handleTimeChange("goalRaceTime", "seconds", e.target.value)}
-                  className="w-16 bg-black/30 border-white/20"
-                />
-              </div>
-
-              <Select
-                value={formData.goalRaceDistance}
-                onValueChange={(value) => updateFormData({ goalRaceDistance: value })}
-              >
-                <SelectTrigger className="w-40 bg-black/30 border-white/20">
-                  <SelectValue placeholder="Distance" />
-                </SelectTrigger>
-                <SelectContent>
-                  {raceDistances.map((distance) => (
-                    <SelectItem key={distance.value} value={distance.value}>
-                      {distance.label}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
+            <div className="flex gap-2 items-center">
+              <Input
+                type="number"
+                min="0"
+                max="99"
+                placeholder="HH"
+                value={formData.goalRaceTime.hours}
+                onChange={(e) => handleTimeChange("goalRaceTime", "hours", e.target.value)}
+                className="w-16 bg-black/30 border-white/20"
+              />
+              <span className="text-xl">:</span>
+              <Input
+                type="number"
+                min="0"
+                max="59"
+                placeholder="MM"
+                value={formData.goalRaceTime.minutes}
+                onChange={(e) => handleTimeChange("goalRaceTime", "minutes", e.target.value)}
+                className="w-16 bg-black/30 border-white/20"
+              />
+              <span className="text-xl">:</span>
+              <Input
+                type="number"
+                min="0"
+                max="59"
+                placeholder="SS"
+                value={formData.goalRaceTime.seconds}
+                onChange={(e) => handleTimeChange("goalRaceTime", "seconds", e.target.value)}
+                className="w-16 bg-black/30 border-white/20"
+              />
             </div>
           </div>
         </div>

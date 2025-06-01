@@ -180,38 +180,32 @@ export default function StrengthSetupStep({ formData, updateFormData, runDays }:
           <Label className="text-lg font-barlow font-semibold">Preferred Strength Days</Label>
           <div className="flex flex-wrap gap-3">
             {weekdays.map((day) => {
-              const conflict = getConflictWarning(day.value)
+              const isRunDay = (runDays || []).includes(day.value);
+              const isSelected = formData.strengthDays.includes(day.value);
+              const conflict = getConflictWarning(day.value);
               return (
-                <Tooltip key={day.value}>
-                  <TooltipTrigger asChild>
-                    <div className="relative">
-                      <button
-                        type="button"
-                        onClick={() => handleDayToggle(day.value)}
-                        className={`w-12 h-12 rounded-full font-barlow font-medium flex items-center justify-center transition-all duration-200 ${
-                          formData.strengthDays.includes(day.value)
-                            ? conflict
-                              ? "bg-yellow-500 text-black"
-                              : "bg-primary text-black glow"
-                            : "bg-black/30 border border-white/10 hover:border-primary/50"
-                        }`}
-                      >
-                        {day.label}
-                      </button>
-                      {conflict && formData.strengthDays.includes(day.value) && (
-                        <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
-                          <AlertTriangle className="w-3 h-3 text-black" />
-                        </div>
-                      )}
-                    </div>
-                  </TooltipTrigger>
-                  {conflict && (
-                    <TooltipContent side="top">
-                      <p className="text-yellow-500">{conflict}</p>
-                    </TooltipContent>
+                <div key={day.value} className="flex flex-col items-center">
+                  <button
+                    type="button"
+                    onClick={() => handleDayToggle(day.value)}
+                    className={`w-12 h-12 rounded-full font-barlow font-medium flex items-center justify-center transition-all duration-200 ${
+                      isSelected
+                        ? "bg-primary text-black glow"
+                        : "bg-black/30 border border-white/10 hover:border-primary/50"
+                    }`}
+                  >
+                    {day.label}
+                  </button>
+                  {isSelected && isRunDay && (
+                    <span className="text-xs text-yellow-400 mt-1">⚠️ Run also scheduled</span>
                   )}
-                </Tooltip>
-              )
+                  {conflict && isSelected && (
+                    <div className="absolute -top-1 -right-1 w-4 h-4 bg-yellow-500 rounded-full flex items-center justify-center">
+                      <AlertTriangle className="w-3 h-3 text-black" />
+                    </div>
+                  )}
+                </div>
+              );
             })}
           </div>
           <p className="text-sm text-gray-400 font-barlow">

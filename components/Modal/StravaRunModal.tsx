@@ -3,6 +3,9 @@ import { Clock, MapPin, Calendar, X, TrendingUp, Droplets } from 'lucide-react';
 import ManualLogForm from './ManualLogForm';
 import { supabase } from "@/lib/supabaseClient";
 import type { Database } from '@/types/supabase';
+import Confetti from 'react-confetti';
+import { useRouter } from 'next/navigation';
+import { createPortal } from 'react-dom';
 
 type WorkoutLogInsert = Database['public']['Tables']['workout_logs']['Insert'];
 
@@ -55,6 +58,11 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
   const [showUpdatePlanModal, setShowUpdatePlanModal] = useState(false);
   const [showRestartWarning, setShowRestartWarning] = useState(false);
   const [userId, setUserId] = useState<string | null>(null);
+  const [loadingAdapt, setLoadingAdapt] = useState(false);
+  const [showCelebration, setShowCelebration] = useState(false);
+  const [inAppMessage, setInAppMessage] = useState<string | null>(null);
+  const [windowSize, setWindowSize] = useState({ width: 0, height: 0 });
+  const router = useRouter();
 
   useEffect(() => {
     if (isOpen) {
@@ -312,6 +320,8 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
               alert('Missing required data for adaptation.');
               return;
             }
+            setLoadingAdapt(true);
+            setInAppMessage(null);
             try {
               const res = await fetch('/api/adapt', {
                 method: 'POST',
@@ -334,14 +344,22 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
               });
               const data = await res.json();
               if (res.ok) {
-                alert('Plan adapted successfully!');
-                onClose();
-                window.location.reload();
+                setLoadingAdapt(false);
+                setShowCelebration(true);
+                setInAppMessage('Plan adapted successfully!');
+                setTimeout(() => {
+                  setShowCelebration(false);
+                  setInAppMessage(null);
+                  onClose();
+                  window.location.reload();
+                }, 2000);
               } else {
-                alert('Adaptation failed: ' + (data.error || 'Unknown error'));
+                setLoadingAdapt(false);
+                setInAppMessage('Adaptation failed: ' + (data.error || 'Unknown error'));
               }
             } catch (err) {
-              alert('Adaptation failed: ' + err);
+              setLoadingAdapt(false);
+              setInAppMessage('Adaptation failed: ' + err);
             }
           }}
         >
@@ -432,6 +450,20 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
       </button>
     </div>
   );
+
+  // Set window size for confetti
+  useEffect(() => {
+    function updateSize() {
+      setWindowSize({ width: window.innerWidth, height: window.innerHeight });
+    }
+    if (showCelebration) {
+      updateSize();
+      window.addEventListener('resize', updateSize);
+    }
+    return () => {
+      window.removeEventListener('resize', updateSize);
+    };
+  }, [showCelebration]);
 
   return (
     <>
@@ -579,6 +611,25 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
       )}
       {showUpdatePlanModal && renderUpdatePlanModal()}
       {showRestartWarning && renderRestartWarning()}
+      {/* Loading overlay */}
+      {loadingAdapt && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60">
+          <div className="animate-spin rounded-full h-16 w-16 border-t-4 border-b-4 border-orange-500"></div>
+          <span className="ml-4 text-white text-xl font-bold">Adapting your plan...</span>
+        </div>
+      )}
+      {/* Celebration confetti */}
+      {showCelebration && windowSize.width > 0 && windowSize.height > 0 &&
+        createPortal(
+          <Confetti width={windowSize.width} height={windowSize.height} />, document.body
+        )
+      }
+      {/* In-app message */}
+      {inAppMessage && (
+        <div className="fixed top-8 left-1/2 -translate-x-1/2 z-[101] bg-zinc-900 text-white px-6 py-3 rounded-xl shadow-lg border border-orange-500 font-bold text-lg">
+          {inAppMessage}
+        </div>
+      )}
     </>
   );
 };

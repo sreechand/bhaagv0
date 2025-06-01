@@ -256,7 +256,6 @@ export default function PlanPage() {
             sessions={sessions}
             workoutLogs={workoutLogs}
             onNewPlan={() => handlePlanAction('new')}
-            onActiveWeekDoubleClick={() => setShowStravaRunModal(true)}
           />
         ) : (
           <div className="flex flex-col items-center justify-center min-h-[60vh] relative w-full">

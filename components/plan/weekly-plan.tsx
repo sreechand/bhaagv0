@@ -7,6 +7,8 @@ import { Button } from "@/components/ui/button"
 import { addDays, format } from 'date-fns';
 import type { Database } from '@/types/supabase';
 import { supabase } from "@/lib/supabaseClient";
+import StravaRunModal from "@/components/Modal/StravaRunModal";
+import StrengthLogModal from "@/components/Modal/StrengthLogModal";
 
 const DAYS_ORDER = [
   'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun'
@@ -30,7 +32,6 @@ type WeeklyPlanProps = {
   sessions: PlanSession[];
   workoutLogs: any[];
   onNewPlan?: () => void;
-  onActiveWeekDoubleClick?: () => void;
 };
 
 type WorkoutLogModalProps = {
@@ -189,9 +190,11 @@ function WorkoutLogModal({ session, onClose, onLogged }: WorkoutLogModalProps) {
   );
 }
 
-const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, workoutLogs, onNewPlan, onActiveWeekDoubleClick }) => {
+const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, workoutLogs, onNewPlan }) => {
   const [currentWeekIdx, setCurrentWeekIdx] = useState<number>(0);
   const [logModalSession, setLogModalSession] = useState<PlanSession | null>(null);
+  const [stravaModalSession, setStravaModalSession] = useState<PlanSession | null>(null);
+  const [strengthModalSession, setStrengthModalSession] = useState<PlanSession | null>(null);
   // Drag-and-drop state
   const [draggedSession, setDraggedSession] = useState<PlanSession | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
@@ -319,11 +322,6 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, w
             onDragOver={e => handleDragOver(day, e)}
             onDrop={() => handleDrop(day)}
             onDragLeave={() => setDragOverDay(null)}
-            onDoubleClick={() => {
-              if (dayMap[day].length > 0 && onActiveWeekDoubleClick) {
-                onActiveWeekDoubleClick();
-              }
-            }}
           >
             <div className="bg-black/50 p-2 text-center font-barlow font-semibold border-b border-white/10">
               {day}
@@ -347,6 +345,15 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, w
                       style={{ cursor: isClosed ? 'not-allowed' : 'grab', opacity: isClosed ? 0.6 : 1 }}
                       onDragStart={() => !isClosed && handleDragStart(session)}
                       onDragEnd={handleDragEnd}
+                      onDoubleClick={() => {
+                        if (!isClosed) {
+                          if (session.type === 'strength') {
+                            setStrengthModalSession(session);
+                          } else {
+                            setStravaModalSession(session);
+                          }
+                        }
+                      }}
                     >
                       <div className="font-barlow font-semibold text-sm mb-1 capitalize flex items-center gap-2">
                         {session.type} - {(session.focus || '')}
@@ -409,6 +416,27 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, w
           onClose={() => setLogModalSession(null)}
           onLogged={() => {
             setLogModalSession(null);
+            window.location.reload();
+          }}
+        />
+      )}
+      {stravaModalSession && (
+        <StravaRunModal
+          isOpen={!!stravaModalSession}
+          onClose={() => setStravaModalSession(null)}
+          onImport={() => {}}
+          onManualLog={() => {}}
+          onSkip={() => {}}
+          sessionId={stravaModalSession.id}
+        />
+      )}
+      {strengthModalSession && (
+        <StrengthLogModal
+          isOpen={!!strengthModalSession}
+          onClose={() => setStrengthModalSession(null)}
+          sessionId={strengthModalSession.id}
+          onLogged={() => {
+            setStrengthModalSession(null);
             window.location.reload();
           }}
         />

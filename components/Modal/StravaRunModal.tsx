@@ -1,6 +1,8 @@
 import React, { useEffect, useState } from 'react';
 import { Clock, MapPin, Calendar, X, TrendingUp, Droplets } from 'lucide-react';
 import ManualLogForm from './ManualLogForm';
+import { supabase } from "@/lib/supabaseClient";
+import type { Database } from '@/types/supabase';
 
 interface StravaRunModalProps {
   isOpen: boolean;
@@ -8,6 +10,7 @@ interface StravaRunModalProps {
   onImport: () => void;
   onManualLog: () => void;
   onSkip: () => void;
+  sessionId: string;
 }
 
 interface RunData {
@@ -19,12 +22,21 @@ interface RunData {
   notes: string;
 }
 
+// Add omitUndefined utility if not present
+function omitUndefined<T extends object>(obj: T): Partial<T> {
+  return Object.entries(obj).reduce((acc, [k, v]) => {
+    if (v !== undefined) (acc as any)[k] = v;
+    return acc;
+  }, {} as Partial<T>);
+}
+
 const StravaRunModal: React.FC<StravaRunModalProps> = ({
   isOpen,
   onClose,
   onImport,
   onManualLog,
-  onSkip
+  onSkip,
+  sessionId
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [showManualLog, setShowManualLog] = useState(false);
@@ -114,11 +126,49 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
     setShowImportLogForm(true);
   };
 
+  // Save log to Supabase (used for both manual and imported logs)
+  const saveWorkoutLog = async (logData: any) => {
+    if (!sessionId) {
+      setError('Session ID is missing. Cannot save workout log.');
+      return;
+    }
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      setError('User not authenticated.');
+      return;
+    }
+    if (!sessionId || !user.id) {
+      setError('Session ID or User ID missing. Cannot save workout log.');
+      return;
+    }
+    const log: Database['public']['Tables']['workout_logs']['Insert'] = {
+      avg_heart_rate: logData.avgHeartRate !== undefined && logData.avgHeartRate !== "" ? Math.round(Number(logData.avgHeartRate)) : null,
+      date: new Date().toISOString().slice(0, 10),
+      distance: logData.distance !== undefined && logData.distance !== "" ? Number(logData.distance) : null,
+      elapsed_time: logData.elapsedTime !== undefined && logData.elapsedTime !== "" ? Number(logData.elapsedTime) : null,
+      max_heart_rate: logData.maxHeartRate !== undefined && logData.maxHeartRate !== "" ? Math.round(Number(logData.maxHeartRate)) : null,
+      notes: logData.notes ? String(logData.notes) : null,
+      rpe: logData.rpe !== undefined && logData.rpe !== "" ? Math.round(Number(logData.rpe)) : null,
+      session_id: String(sessionId),
+      user_id: String(user.id),
+    };
+    console.log('Strava log payload:', JSON.stringify(log));
+    const { error } = await supabase.from("workout_logs").insert([log]);
+    if (error) {
+      console.error('Supabase insert error:', error);
+    }
+    if (!error) {
+      onClose();
+      window.location.reload();
+    } else {
+      setError('Failed to save workout log.');
+    }
+  };
+
   // Handler for submitting the imported log
-  const handleImportLogSubmit = (data: any) => {
+  const handleImportLogSubmit = async (data: any) => {
     setShowImportLogForm(false);
-    onClose();
-    // You can add your save logic here
+    await saveWorkoutLog(data);
   };
 
   const handleManualLog = () => {
@@ -143,9 +193,10 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
     onClose();
   };
 
-  const handleManualLogSubmit = (data: RunData) => {
-    console.log('Manual log data:', data);
-    onClose();
+  // Handler for manual log
+  const handleManualLogSubmit = async (data: RunData) => {
+    setShowManualLog(false);
+    await saveWorkoutLog(data);
   };
 
   const renderSkipReasons = () => (
@@ -244,8 +295,7 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
                       </svg>
                     </div>
                     <div>
-                      <h3 className="text-xl font-bold text-white">Strava Activity</h3>
-                      <p className="text-sm text-gray-400">Would you like to import this run?</p>
+                      <h3 className="text-xl font-bold text-white">Log a Run</h3>
                     </div>
                   </div>
                 </div>
@@ -263,7 +313,7 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
                   className="w-full py-3 rounded-lg font-medium text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 shadow-lg shadow-orange-700/20 transform transition-all duration-200 hover:translate-y-[-1px] active:translate-y-[1px]"
                   disabled={loading}
                 >
-                  Import
+                  Import from Strava
                 </button>
                 <button 
                   onClick={handleManualLog}

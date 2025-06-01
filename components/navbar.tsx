@@ -40,6 +40,9 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
   const [activeSection, setActiveSection] = useState("home")
   const supabase = createClientComponentClient<Database>()
 
+  const [stravaConnected, setStravaConnected] = useState(false);
+  const [checkingStrava, setCheckingStrava] = useState(true);
+
   useEffect(() => {
     const checkUser = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -84,16 +87,6 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
     return () => subscription.unsubscribe()
   }, [supabase.auth])
 
-  const handleSignOut = async () => {
-    try {
-      await supabase.auth.signOut()
-      localStorage.removeItem('userProfile')
-      router.replace('/')
-    } catch (error) {
-      console.error('Sign out error:', error)
-    }
-  }
-
   useEffect(() => {
     if (!isDashboard) {
     const handleScroll = () => {
@@ -119,6 +112,34 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
     return () => window.removeEventListener("scroll", handleScroll)
     }
   }, [isDashboard])
+
+  useEffect(() => {
+    // Only check on /dashboard/plan
+    if (pathname === "/dashboard/plan" && isLoggedIn) {
+      const checkStrava = async () => {
+        setCheckingStrava(true);
+        try {
+          const res = await fetch("/api/strava/activities?per_page=1");
+          setStravaConnected(res.ok);
+        } catch {
+          setStravaConnected(false);
+        } finally {
+          setCheckingStrava(false);
+        }
+      };
+      checkStrava();
+    }
+  }, [pathname, isLoggedIn]);
+
+  const handleSignOut = async () => {
+    try {
+      await supabase.auth.signOut()
+      localStorage.removeItem('userProfile')
+      router.replace('/')
+    } catch (error) {
+      console.error('Sign out error:', error)
+    }
+  }
 
   const scrollToSection = (sectionId: string) => {
     const element = document.getElementById(sectionId)
@@ -198,12 +219,29 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
             {isLoggedIn ? (
               <>
                 {pathname === "/dashboard/plan" && (
-                  <a
-                    href={`https://www.strava.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID}&response_type=code&redirect_uri=http://localhost:3000/api/strava/callback&approval_prompt=force&scope=read,activity:read_all`}
-                    className="mr-4 px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition"
-                  >
-                    Connect to Strava
-                  </a>
+                  checkingStrava ? (
+                    <span className="mr-4 px-4 py-2 bg-gray-500 text-white rounded animate-pulse">Checking Strava...</span>
+                  ) : stravaConnected ? (
+                    <span className="mr-4 px-4 py-2 bg-green-600 text-white rounded flex items-center gap-2">
+                      <span style={{
+                        display: 'inline-block',
+                        width: 10,
+                        height: 10,
+                        borderRadius: '50%',
+                        background: '#22c55e',
+                        marginRight: 8,
+                        animation: 'blinker 1s linear infinite',
+                      }}></span>
+                      Connected to Strava
+                    </span>
+                  ) : (
+                    <a
+                      href={`https://www.strava.com/oauth/authorize?client_id=${process.env.NEXT_PUBLIC_STRAVA_CLIENT_ID}&response_type=code&redirect_uri=http://localhost:3000/api/strava/callback&approval_prompt=force&scope=read,activity:read_all`}
+                      className="mr-4 px-4 py-2 bg-orange-600 text-white rounded hover:bg-orange-700 transition"
+                    >
+                      Connect to Strava
+                    </a>
+                  )
                 )}
                 <UserAvatar onSignOut={handleSignOut} />
               </>
@@ -313,5 +351,12 @@ function MobileNavLink({ href, label, onClick }: NavLinkProps) {
       </a>
     </Link>
   )
+}
+
+// Add the blinker keyframes to a style tag if not already present
+if (typeof window !== 'undefined') {
+  const style = document.createElement('style');
+  style.innerHTML = `@keyframes blinker { 50% { opacity: 0.3; } }`;
+  document.head.appendChild(style);
 }
 

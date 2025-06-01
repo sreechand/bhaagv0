@@ -30,6 +30,7 @@ type WeeklyPlanProps = {
   sessions: PlanSession[];
   workoutLogs: any[];
   onNewPlan?: () => void;
+  onActiveWeekDoubleClick?: () => void;
 };
 
 type WorkoutLogModalProps = {
@@ -188,7 +189,7 @@ function WorkoutLogModal({ session, onClose, onLogged }: WorkoutLogModalProps) {
   );
 }
 
-const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, workoutLogs, onNewPlan }) => {
+const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, workoutLogs, onNewPlan, onActiveWeekDoubleClick }) => {
   const [currentWeekIdx, setCurrentWeekIdx] = useState<number>(0);
   const [logModalSession, setLogModalSession] = useState<PlanSession | null>(null);
   // Drag-and-drop state
@@ -299,7 +300,9 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, w
         </div>
       </motion.div>
       {/* Daily Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-7 gap-4 w-full">
+      <div
+        className="grid grid-cols-1 md:grid-cols-7 gap-4 w-full"
+      >
         {DAYS_ORDER.map((day, idx) => (
           <motion.div
             key={day}
@@ -311,6 +314,11 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, w
             onDragOver={e => handleDragOver(day, e)}
             onDrop={() => handleDrop(day)}
             onDragLeave={() => setDragOverDay(null)}
+            onDoubleClick={() => {
+              if (dayMap[day].length > 0 && onActiveWeekDoubleClick) {
+                onActiveWeekDoubleClick();
+              }
+            }}
           >
             <div className="bg-black/50 p-2 text-center font-barlow font-semibold border-b border-white/10">
               {day}
@@ -331,7 +339,6 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, w
                       key={i}
                       className={`p-3 rounded-lg ${getWorkoutColor(session.type, session.focus || '')} relative ${draggedSession?.id === session.id ? 'opacity-50' : ''}`}
                       draggable={!isClosed}
-                      onDoubleClick={() => !isClosed && setLogModalSession(session)}
                       style={{ cursor: isClosed ? 'not-allowed' : 'grab', opacity: isClosed ? 0.6 : 1 }}
                       onDragStart={() => !isClosed && handleDragStart(session)}
                       onDragEnd={handleDragEnd}
@@ -401,15 +408,6 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, w
           }}
         />
       )}
-      {/* Connect Strava Button */}
-      <div className="flex justify-center my-8">
-          <button
-            onClick={() => setShowStravaRunModal(true)}
-            className="px-6 py-3 rounded-lg font-medium text-white bg-gradient-to-r from-orange-500 to-red-500 hover:from-orange-600 hover:to-red-600 shadow-lg shadow-orange-700/20 transform transition-all duration-200 hover:translate-y-[-1px] active:translate-y-[1px]"
-          >
-            Connect Strava
-          </button>
-        </div>
     </div>
   );
 };

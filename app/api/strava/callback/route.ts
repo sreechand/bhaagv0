@@ -31,6 +31,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(data, { status: 400 });
   }
 
-  // For now, just return the token data
-  return NextResponse.json(data);
+  // Redirect to dashboard/plan
+  return NextResponse.redirect(new URL('/dashboard/plan', req.nextUrl));
 }

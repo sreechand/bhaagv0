@@ -4,6 +4,7 @@ import { X } from 'lucide-react';
 interface ManualLogFormProps {
   onClose: () => void;
   onSubmit: (data: RunData) => void;
+  initialValues?: Partial<RunData>;
 }
 
 interface RunData {
@@ -15,20 +16,24 @@ interface RunData {
   notes: string;
 }
 
-const ManualLogForm: React.FC<ManualLogFormProps> = ({ onClose, onSubmit }) => {
+const ManualLogForm: React.FC<ManualLogFormProps> = ({ onClose, onSubmit, initialValues }) => {
+  const [distance, setDistance] = React.useState(initialValues?.distance ?? "");
+  const [elapsedTime, setElapsedTime] = React.useState(initialValues?.elapsedTime ?? "");
+  const [rpe, setRpe] = React.useState(initialValues?.rpe ?? "");
+  const [avgHeartRate, setAvgHeartRate] = React.useState(initialValues?.avgHeartRate ?? "");
+  const [maxHeartRate, setMaxHeartRate] = React.useState(initialValues?.maxHeartRate ?? "");
+  const [notes, setNotes] = React.useState(initialValues?.notes ?? "");
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const formData = new FormData(e.target as HTMLFormElement);
-    
     const data: RunData = {
-      distance: Number(formData.get('distance')),
-      elapsedTime: Number(formData.get('elapsedTime')),
-      rpe: Number(formData.get('rpe')),
-      avgHeartRate: Number(formData.get('avgHeartRate')),
-      maxHeartRate: Number(formData.get('maxHeartRate')),
-      notes: formData.get('notes') as string
+      distance: Number(distance),
+      elapsedTime: Number(elapsedTime),
+      rpe: Number(rpe),
+      avgHeartRate: Number(avgHeartRate),
+      maxHeartRate: Number(maxHeartRate),
+      notes: notes as string
     };
-    
     onSubmit(data);
   };
 
@@ -57,6 +62,8 @@ const ManualLogForm: React.FC<ManualLogFormProps> = ({ onClose, onSubmit }) => {
             required
             className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
             placeholder="5.0"
+            value={distance}
+            onChange={e => setDistance(e.target.value)}
           />
         </div>
 
@@ -71,6 +78,8 @@ const ManualLogForm: React.FC<ManualLogFormProps> = ({ onClose, onSubmit }) => {
             required
             className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
             placeholder="1800"
+            value={elapsedTime}
+            onChange={e => setElapsedTime(e.target.value)}
           />
         </div>
 
@@ -87,6 +96,8 @@ const ManualLogForm: React.FC<ManualLogFormProps> = ({ onClose, onSubmit }) => {
             required
             className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
             placeholder="7"
+            value={rpe}
+            onChange={e => setRpe(e.target.value)}
           />
         </div>
 
@@ -100,6 +111,8 @@ const ManualLogForm: React.FC<ManualLogFormProps> = ({ onClose, onSubmit }) => {
             name="avgHeartRate"
             className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
             placeholder="150"
+            value={avgHeartRate}
+            onChange={e => setAvgHeartRate(e.target.value)}
           />
         </div>
 
@@ -113,6 +126,8 @@ const ManualLogForm: React.FC<ManualLogFormProps> = ({ onClose, onSubmit }) => {
             name="maxHeartRate"
             className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
             placeholder="175"
+            value={maxHeartRate}
+            onChange={e => setMaxHeartRate(e.target.value)}
           />
         </div>
 
@@ -126,6 +141,8 @@ const ManualLogForm: React.FC<ManualLogFormProps> = ({ onClose, onSubmit }) => {
             rows={3}
             className="w-full bg-black/30 border border-white/10 rounded-lg px-3 py-2 text-white placeholder-gray-500 focus:outline-none focus:ring-2 focus:ring-primary/50"
             placeholder="How did your run feel?"
+            value={notes}
+            onChange={e => setNotes(e.target.value)}
           ></textarea>
         </div>
 

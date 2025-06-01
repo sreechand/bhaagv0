@@ -1,14 +1,14 @@
 import { NextResponse } from "next/server";
 
-// const STRAVA_CLIENT_ID = "160986";
-// const STRAVA_CLIENT_SECRET = "ec06b59ac354e1c8ec5818a22b35472a94aee895";
-// const STRAVA_REFRESH_TOKEN = "d78f2472bcb71788ea5ac36784550a618c30b1f1";
+const STRAVA_CLIENT_ID = "160986";
+const STRAVA_CLIENT_SECRET = "ec06b59ac354e1c8ec5818a22b35472a94aee895";
+const STRAVA_REFRESH_TOKEN = "d78f2472bcb71788ea5ac36784550a618c30b1f1";
 
 // Manish credentials
-const STRAVA_CLIENT_ID = "160989";
-const STRAVA_CLIENT_SECRET="cc65256fa2bbdf73e92b97232fba1276846ca85b";
-const STRAVA_ACCESS_TOKEN="0930f92b4367847f2be353177ad8904ff36609c1";
-const STRAVA_REFRESH_TOKEN="10b64f968cd54fa80895e8f2c6ff8062204de15b";
+// const STRAVA_CLIENT_ID = "160989";
+// const STRAVA_CLIENT_SECRET="cc65256fa2bbdf73e92b97232fba1276846ca85b";
+// const STRAVA_ACCESS_TOKEN="0930f92b4367847f2be353177ad8904ff36609c1";
+// const STRAVA_REFRESH_TOKEN="10b64f968cd54fa80895e8f2c6ff8062204de15b";
 
 async function getStravaAccessToken() {
   const response = await fetch("https://www.strava.com/oauth/token", {

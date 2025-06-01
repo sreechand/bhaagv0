@@ -4,6 +4,8 @@ import ManualLogForm from './ManualLogForm';
 import { supabase } from "@/lib/supabaseClient";
 import type { Database } from '@/types/supabase';
 
+type WorkoutLogInsert = Database['public']['Tables']['workout_logs']['Insert'];
+
 interface StravaRunModalProps {
   isOpen: boolean;
   onClose: () => void;
@@ -52,6 +54,7 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
   const [skipReason, setSkipReason] = useState<string | null>(null);
   const [showUpdatePlanModal, setShowUpdatePlanModal] = useState(false);
   const [showRestartWarning, setShowRestartWarning] = useState(false);
+  const [userId, setUserId] = useState<string | null>(null);
 
   useEffect(() => {
     if (isOpen) {
@@ -72,6 +75,12 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
       }, 300);
     }
   }, [isOpen]);
+
+  useEffect(() => {
+    supabase.auth.getUser().then(({ data: { user } }) => {
+      setUserId(user?.id || null);
+    });
+  }, []);
 
   // Helper: check if user is authorized to Strava (by trying to fetch activities)
   const checkStravaAuth = async () => {
@@ -144,23 +153,20 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
       setError('Session ID or User ID missing. Cannot save workout log.');
       return;
     }
-    // Only include fields you want to set, never include undefined
-    const log: Database['public']['Tables']['workout_logs']['Insert'] = {
+    // Only include fields you want to set, never include undefined or extra keys
+    const log: WorkoutLogInsert = {
+      avg_heart_rate: typeof logData?.avgHeartRate === 'number' ? Math.round(logData.avgHeartRate) : null,
       date: new Date().toISOString().slice(0, 10),
+      distance: typeof logData?.distance === 'number' ? logData.distance : (logData?.distance ? Number(logData.distance) : null),
+      elapsed_time: typeof logData?.elapsedTime === 'number' ? logData.elapsedTime : (logData?.elapsedTime ? Number(logData.elapsedTime) : null),
+      max_heart_rate: typeof logData?.maxHeartRate === 'number' ? Math.round(logData.maxHeartRate) : null,
+      notes: typeof logData?.notes === 'string' && logData.notes !== '' ? String(logData.notes) : null,
+      rpe: typeof logData?.rpe === 'number' ? Math.round(logData.rpe) : null,
       session_id: String(sessionId),
-      user_id: String(user.id),
-      avg_heart_rate: logData.avgHeartRate !== undefined && logData.avgHeartRate !== "" ? Math.round(Number(logData.avgHeartRate)) : null,
-      distance: logData.distance !== undefined && logData.distance !== "" ? Number(logData.distance) : null,
-      elapsed_time: logData.elapsedTime !== undefined && logData.elapsedTime !== "" ? Number(logData.elapsedTime) : null,
-      max_heart_rate: logData.maxHeartRate !== undefined && logData.maxHeartRate !== "" ? Math.round(Number(logData.maxHeartRate)) : null,
-      notes: logData.notes !== undefined && logData.notes !== "" ? String(logData.notes) : null,
-      rpe: logData.rpe !== undefined && logData.rpe !== "" ? Math.round(Number(logData.rpe)) : null,
       skipped: null,
+      user_id: String(user.id),
     };
-    // Remove any accidental undefined fields (defensive)
-    delete (log as any).created_at;
-    delete (log as any).id;
-    const { error } = await supabase.from("workout_logs").insert([log]);
+    const { error } = await supabase.from("workout_logs").insert([log] as any);
     if (error) {
       console.error('Supabase insert error:', error);
     }
@@ -201,22 +207,20 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
       setError('User not authenticated.');
       return;
     }
-    // Only include fields you want to set, never include undefined
-    const log: Database['public']['Tables']['workout_logs']['Insert'] = {
-      date: new Date().toISOString().slice(0, 10),
-      session_id: String(sessionId),
-      user_id: String(user.id),
-      notes: reason,
-      skipped: true,
+    // Only include fields you want to set, never include undefined or extra keys
+    const log: WorkoutLogInsert = {
       avg_heart_rate: null,
+      date: new Date().toISOString().slice(0, 10),
       distance: null,
       elapsed_time: null,
       max_heart_rate: null,
+      notes: typeof reason === 'string' && reason !== '' ? String(reason) : null,
       rpe: null,
+      session_id: String(sessionId),
+      skipped: true,
+      user_id: String(user.id),
     };
-    delete (log as any).created_at;
-    delete (log as any).id;
-    const { error } = await supabase.from("workout_logs").insert([log]);
+    const { error } = await supabase.from("workout_logs").insert([log] as any);
     if (error) {
       setError('Failed to save skipped run.');
     } else {
@@ -269,7 +273,77 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
         </button>
         <button
           className="w-full py-3 rounded-lg font-medium text-white bg-orange-700 hover:bg-orange-800 border border-white/10 transition-all duration-200 hover:border-white/20 mb-3"
-          onClick={() => { window.location.href = '/api/adapt'; }}
+          type="button"
+          onClick={async () => {
+            const planId = weeks?.[currentWeekIdx]?.plan_id || weeks?.[0]?.plan_id || null;
+            const currentWeekNumber = weeks?.[currentWeekIdx]?.week_number || null;
+            const fatigue = weeks?.[currentWeekIdx - 1]?.fatigue || null; // previous week fatigue
+            const helpMeCatchUp = true;
+            const currentWeekId = weeks?.[currentWeekIdx]?.id;
+            const nextWeekId = weeks?.[currentWeekIdx + 1]?.id;
+            const runs = sessions.filter(s =>
+              (s.week_id === currentWeekId || s.week_id === nextWeekId) &&
+              (!workoutLogs.find(log => log.session_id === s.id))
+            );
+            // Calculate previous week stats
+            const prevWeekIdx = currentWeekIdx - 1;
+            const prevWeekId = weeks?.[prevWeekIdx]?.id;
+            const prevWeekSessions = sessions.filter(s => s.week_id === prevWeekId && s.type === 'run');
+            const prevWeekLogs = workoutLogs.filter(log => prevWeekSessions.some(s => s.id === log.session_id));
+            const missedRunsLastWeek = prevWeekLogs.filter(log => log.skipped).length;
+            const lastWeekMileage = prevWeekLogs.reduce((sum, log) => sum + (log.distance || 0), 0);
+            const skippedRunReasons = prevWeekLogs.filter(log => log.skipped && log.notes).map(log => log.notes);
+            // Calculate current week stats
+            const currWeekSessions = sessions.filter(s => s.week_id === currentWeekId && s.type === 'run');
+            const currWeekLogs = workoutLogs.filter(log => currWeekSessions.some(s => s.id === log.session_id));
+            const currentWeekMileage = currWeekLogs.reduce((sum, log) => sum + (log.distance || 0), 0);
+            const missedRunsCurrentWeek = currWeekLogs.filter(log => log.skipped).length;
+            // Optional: Time trial result
+            const ttSession = currWeekSessions.find(s => s.focus === 'Time Trial');
+            let timeTrialResult = null;
+            if (ttSession) {
+              const ttLog = workoutLogs.find(log => log.session_id === ttSession.id);
+              if (ttLog) {
+                timeTrialResult = { distance: ttLog.distance, elapsed_time: ttLog.elapsed_time };
+              }
+            }
+            console.log({ userId, planId, currentWeekNumber, runs, missedRunsLastWeek, missedRunsCurrentWeek, lastWeekMileage, currentWeekMileage, timeTrialResult, skippedRunReasons });
+            if (!userId || !planId || !currentWeekNumber || !runs.length) {
+              alert('Missing required data for adaptation.');
+              return;
+            }
+            try {
+              const res = await fetch('/api/adapt', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                  user_id: userId,
+                  plan_id: planId,
+                  current_week_number: currentWeekNumber,
+                  current_week_id: currentWeekId,
+                  help_me_catch_up: helpMeCatchUp,
+                  fatigue,
+                  runs,
+                  missedRunsLastWeek,
+                  missedRunsCurrentWeek,
+                  lastWeekMileage,
+                  currentWeekMileage,
+                  timeTrialResult,
+                  skippedRunReasons
+                })
+              });
+              const data = await res.json();
+              if (res.ok) {
+                alert('Plan adapted successfully!');
+                onClose();
+                window.location.reload();
+              } else {
+                alert('Adaptation failed: ' + (data.error || 'Unknown error'));
+              }
+            } catch (err) {
+              alert('Adaptation failed: ' + err);
+            }
+          }}
         >
           I want to catch up - Update Plan
         </button>

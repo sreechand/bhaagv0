@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # Bhaag-V0
 
 BHAAG is a Next.js-based web application that leverages AI to create personalized running and strength training plans. The system integrates Supabase for backend services and OpenAI for plan generation, providing users with structured, adaptive training programs based on their goals and preferences. The application follows a hierarchical data model, organizing training content into plans, weeks, and individual sessions for a comprehensive user experience.
@@ -31,3 +32,7 @@ Returns JSON-formatted plan data that is parsed and stored in the database
 
 Developed as part of the Build W/ AI program by Growth School
 By Manish, Sandeep, Sreechand, Abhisehk
+=======
+# Bhaag_V1
+Latest Bhaag changes with strava connection
+>>>>>>> 6e16ab6034e63d271f78eb7009eac6e446b105bf

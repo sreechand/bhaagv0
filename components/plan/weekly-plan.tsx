@@ -1,6 +1,6 @@
 "use client"
 
-import React, { useState } from "react"
+import React, { useState, useEffect } from "react"
 import { motion } from "framer-motion"
 import { AlertCircle, Calendar, ChevronLeft, ChevronRight, Dumbbell, MonitorIcon as Running } from "lucide-react"
 import { Button } from "@/components/ui/button"
@@ -21,7 +21,7 @@ type PlanSummary = {
   strength_focus_summary: string;
 };
 
-type PlanWeek = Database['public']['Tables']['plan_weeks']['Row'];
+type PlanWeek = Database['public']['Tables']['plan_weeks']['Row'] & { fatigue: number | null };
 type PlanSession = Database['public']['Tables']['plan_sessions']['Row'];
 type WorkoutLogInsert = Database['public']['Tables']['workout_logs']['Insert'];
 type PlanSessionUpdate = Database['public']['Tables']['plan_sessions']['Update'];
@@ -191,13 +191,40 @@ function WorkoutLogModal({ session, onClose, onLogged }: WorkoutLogModalProps) {
 }
 
 const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, workoutLogs, onNewPlan }) => {
-  const [currentWeekIdx, setCurrentWeekIdx] = useState<number>(0);
+  // Find the first week that is not fully closed (not all sessions logged/skipped)
+  function getFirstActiveWeekIdx() {
+    for (let i = 0; i < weeks.length; i++) {
+      const week = weeks[i];
+      const weekSessions = sessions.filter((s) => s.week_id === week.id);
+      if (weekSessions.length === 0) continue;
+      const allClosed = weekSessions.every(s => {
+        const log = workoutLogs.find(log => log.session_id === s.id);
+        return !!log;
+      });
+      if (!allClosed) return i;
+    }
+    // If all weeks are closed, show the last week
+    return weeks.length - 1;
+  }
+  const [currentWeekIdx, setCurrentWeekIdx] = useState<number>(() => getFirstActiveWeekIdx());
+
+  // Update currentWeekIdx if weeks/sessions/logs change (e.g., after log/skip/drag)
+  useEffect(() => {
+    setCurrentWeekIdx(getFirstActiveWeekIdx());
+    // eslint-disable-next-line
+  }, [weeks, sessions, workoutLogs]);
+
   const [logModalSession, setLogModalSession] = useState<PlanSession | null>(null);
   const [stravaModalSession, setStravaModalSession] = useState<PlanSession | null>(null);
   const [strengthModalSession, setStrengthModalSession] = useState<PlanSession | null>(null);
   // Drag-and-drop state
   const [draggedSession, setDraggedSession] = useState<PlanSession | null>(null);
   const [dragOverDay, setDragOverDay] = useState<string | null>(null);
+  const [fatigue, setFatigue] = useState<number | null>(null);
+  const [fatigueInput, setFatigueInput] = useState<string>("");
+  const [fatigueSubmitting, setFatigueSubmitting] = useState(false);
+  const [fatigueSubmitted, setFatigueSubmitted] = useState(false);
+  const [fatigueError, setFatigueError] = useState<string | null>(null);
 
   if (!weeks.length) return <div>No plan data available.</div>;
 
@@ -255,6 +282,54 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, w
     setDraggedSession(null);
     setDragOverDay(null);
     window.location.reload();
+  };
+
+  // Fatigue logic: only show slider if all sessions are logged or skipped
+  const allSessionsClosed = weekSessions.length > 0 && weekSessions.every(s => {
+    const log = workoutLogs.find(log => log.session_id === s.id);
+    return !!log;
+  });
+
+  useEffect(() => {
+    if (typeof week.fatigue === 'number') {
+      setFatigue(week.fatigue);
+      setFatigueInput(String(week.fatigue));
+      setFatigueSubmitted(true);
+    } else {
+      setFatigue(null);
+      setFatigueInput("");
+      setFatigueSubmitted(false);
+    }
+  }, [week.fatigue, week.id]);
+
+  const handleFatigueChange = (val: string | number) => {
+    let v = typeof val === 'string' ? Number(val) : val;
+    if (v < 1) v = 1;
+    if (v > 10) v = 10;
+    setFatigueInput(String(v));
+  };
+
+  const handleFatigueSubmit = async () => {
+    setFatigueSubmitting(true);
+    setFatigueError(null);
+    const value = Number(fatigueInput);
+    if (isNaN(value) || value < 1 || value > 10) {
+      setFatigueError("Please enter a value between 1 and 10.");
+      setFatigueSubmitting(false);
+      return;
+    }
+    const { error } = await supabase
+      .from('plan_weeks')
+      .update({ fatigue: value } as Partial<Database['public']['Tables']['plan_weeks']['Update']>)
+      .eq('id', week.id as any);
+    if (error) {
+      setFatigueError("Failed to save fatigue. Please try again.");
+      setFatigueSubmitting(false);
+      return;
+    }
+    setFatigue(value);
+    setFatigueSubmitted(true);
+    setFatigueSubmitting(false);
   };
 
   return (
@@ -382,6 +457,41 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, w
           </motion.div>
         ))}
       </div>
+      {/* Fatigue Slider - only show if all sessions are closed */}
+      {allSessionsClosed && (
+        <div className="bg-black/40 rounded-lg p-6 border border-primary/30 mt-6 flex flex-col items-center max-w-2xl mx-auto">
+          <h3 className="text-lg font-exo font-bold mb-2 text-primary">How fatigued do you feel after this week?</h3>
+          <div className="flex items-center gap-4 w-full max-w-md">
+            <input
+              type="range"
+              min={1}
+              max={10}
+              value={fatigueInput || 5}
+              onChange={e => handleFatigueChange(e.target.value)}
+              disabled={fatigueSubmitted}
+              className="flex-1 accent-primary"
+            />
+            <input
+              type="number"
+              min={1}
+              max={10}
+              value={fatigueInput}
+              onChange={e => handleFatigueChange(e.target.value)}
+              disabled={fatigueSubmitted}
+              className="w-16 ml-2 bg-black/40 border border-primary/30 rounded px-2 py-1 text-gray-100 focus:outline-none focus:ring-2 focus:ring-primary/60 transition text-center"
+            />
+          </div>
+          <button
+            className="mt-4 px-6 py-2 bg-gradient-to-r from-primary to-secondary text-black rounded-lg font-barlow font-bold shadow hover:from-primary/80 hover:to-secondary/80 transition disabled:opacity-60"
+            onClick={handleFatigueSubmit}
+            disabled={fatigueSubmitted || fatigueSubmitting}
+            type="button"
+          >
+            {fatigueSubmitted ? "Submitted" : fatigueSubmitting ? "Submitting..." : "Submit"}
+          </button>
+          {fatigueError && <div className="text-red-500 mt-2">{fatigueError}</div>}
+        </div>
+      )}
       {/* Weekly Tips and Distance */}
       {week.weekly_tips && (
         <div className="bg-black/30 rounded-lg p-4 border border-primary/30 mt-6 flex flex-col md:flex-row md:items-center md:justify-between gap-4">
@@ -428,6 +538,10 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, w
           onManualLog={() => {}}
           onSkip={() => {}}
           sessionId={stravaModalSession.id}
+          currentWeekIdx={currentWeekIdx}
+          weeks={weeks}
+          sessions={sessions}
+          workoutLogs={workoutLogs}
         />
       )}
       {strengthModalSession && (

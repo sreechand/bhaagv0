@@ -11,6 +11,10 @@ interface StravaRunModalProps {
   onManualLog: () => void;
   onSkip: () => void;
   sessionId: string;
+  currentWeekIdx: number;
+  weeks: any[];
+  sessions: any[];
+  workoutLogs: any[];
 }
 
 interface RunData {
@@ -22,21 +26,17 @@ interface RunData {
   notes: string;
 }
 
-// Add omitUndefined utility if not present
-function omitUndefined<T extends object>(obj: T): Partial<T> {
-  return Object.entries(obj).reduce((acc, [k, v]) => {
-    if (v !== undefined) (acc as any)[k] = v;
-    return acc;
-  }, {} as Partial<T>);
-}
-
 const StravaRunModal: React.FC<StravaRunModalProps> = ({
   isOpen,
   onClose,
   onImport,
   onManualLog,
   onSkip,
-  sessionId
+  sessionId,
+  currentWeekIdx,
+  weeks,
+  sessions,
+  workoutLogs
 }) => {
   const [isVisible, setIsVisible] = useState(false);
   const [showManualLog, setShowManualLog] = useState(false);
@@ -49,6 +49,9 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
   const [showImportLogForm, setShowImportLogForm] = useState(false);
   const [importInitialValues, setImportInitialValues] = useState<any>(null);
   const [selectedActivity, setSelectedActivity] = useState<any | null>(null);
+  const [skipReason, setSkipReason] = useState<string | null>(null);
+  const [showUpdatePlanModal, setShowUpdatePlanModal] = useState(false);
+  const [showRestartWarning, setShowRestartWarning] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -141,18 +144,22 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
       setError('Session ID or User ID missing. Cannot save workout log.');
       return;
     }
+    // Only include fields you want to set, never include undefined
     const log: Database['public']['Tables']['workout_logs']['Insert'] = {
-      avg_heart_rate: logData.avgHeartRate !== undefined && logData.avgHeartRate !== "" ? Math.round(Number(logData.avgHeartRate)) : null,
       date: new Date().toISOString().slice(0, 10),
+      session_id: String(sessionId),
+      user_id: String(user.id),
+      avg_heart_rate: logData.avgHeartRate !== undefined && logData.avgHeartRate !== "" ? Math.round(Number(logData.avgHeartRate)) : null,
       distance: logData.distance !== undefined && logData.distance !== "" ? Number(logData.distance) : null,
       elapsed_time: logData.elapsedTime !== undefined && logData.elapsedTime !== "" ? Number(logData.elapsedTime) : null,
       max_heart_rate: logData.maxHeartRate !== undefined && logData.maxHeartRate !== "" ? Math.round(Number(logData.maxHeartRate)) : null,
-      notes: logData.notes ? String(logData.notes) : null,
+      notes: logData.notes !== undefined && logData.notes !== "" ? String(logData.notes) : null,
       rpe: logData.rpe !== undefined && logData.rpe !== "" ? Math.round(Number(logData.rpe)) : null,
-      session_id: String(sessionId),
-      user_id: String(user.id),
+      skipped: null,
     };
-    console.log('Strava log payload:', JSON.stringify(log));
+    // Remove any accidental undefined fields (defensive)
+    delete (log as any).created_at;
+    delete (log as any).id;
     const { error } = await supabase.from("workout_logs").insert([log]);
     if (error) {
       console.error('Supabase insert error:', error);
@@ -183,9 +190,44 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
     setShowSkipReasons(true);
   };
 
+  // Save skipped run log to Supabase
+  const saveSkippedRun = async (reason: string) => {
+    if (!sessionId) {
+      setError('Session ID is missing. Cannot save skipped run.');
+      return;
+    }
+    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    if (userError || !user) {
+      setError('User not authenticated.');
+      return;
+    }
+    // Only include fields you want to set, never include undefined
+    const log: Database['public']['Tables']['workout_logs']['Insert'] = {
+      date: new Date().toISOString().slice(0, 10),
+      session_id: String(sessionId),
+      user_id: String(user.id),
+      notes: reason,
+      skipped: true,
+      avg_heart_rate: null,
+      distance: null,
+      elapsed_time: null,
+      max_heart_rate: null,
+      rpe: null,
+    };
+    delete (log as any).created_at;
+    delete (log as any).id;
+    const { error } = await supabase.from("workout_logs").insert([log]);
+    if (error) {
+      setError('Failed to save skipped run.');
+    } else {
+      onClose();
+      window.location.reload();
+    }
+  };
+
   const handleSkipReason = (reason: string) => {
-    console.log('Skip reason:', reason);
-    onClose();
+    setSkipReason(reason);
+    saveSkippedRun(reason);
   };
 
   const handleUpdatePlan = () => {
@@ -199,44 +241,120 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
     await saveWorkoutLog(data);
   };
 
-  const renderSkipReasons = () => (
-    <div className="px-6 pb-6 space-y-3">
-      <h3 className="text-xl font-bold text-white mb-4">Why did you skip your run?</h3>
-      <button 
-        onClick={() => handleSkipReason('tired')}
-        className="w-full py-3 rounded-lg font-medium text-white bg-zinc-800 hover:bg-zinc-700 border border-white/10 transition-all duration-200 hover:border-white/20"
-      >
-        I was tired
-      </button>
-      <button 
-        onClick={() => handleSkipReason('no-time')}
-        className="w-full py-3 rounded-lg font-medium text-white bg-zinc-800 hover:bg-zinc-700 border border-white/10 transition-all duration-200 hover:border-white/20"
-      >
-        I did not get the time
-      </button>
-      <button 
-        onClick={() => handleSkipReason('injured')}
-        className="w-full py-3 rounded-lg font-medium text-white bg-zinc-800 hover:bg-zinc-700 border border-white/10 transition-all duration-200 hover:border-white/20"
-      >
-        I was injured
-      </button>
+  // Helper: count skipped runs in a week
+  function countSkippedRuns(weekIdx: number) {
+    if (!weeks || !sessions || !workoutLogs) return 0;
+    const week = weeks[weekIdx];
+    if (!week) return 0;
+    const weekSessions = sessions.filter((s) => s.week_id === week.id && s.type === 'run');
+    return weekSessions.filter((s) => {
+      const log = workoutLogs.find((log) => log.session_id === s.id);
+      return log && log.skipped;
+    }).length;
+  }
+  const currentSkipped = countSkippedRuns(currentWeekIdx);
+  const prevSkipped = countSkippedRuns(currentWeekIdx - 1);
+  const showMultiSkipButton = currentSkipped > 1 || prevSkipped > 1;
+
+  // --- Update Plan Modal ---
+  const renderUpdatePlanModal = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/70">
+      <div className="bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md border border-primary/40 p-6 relative">
+        <h3 className="text-xl font-bold text-white mb-4">Update Plan Options</h3>
+        <button
+          className="w-full py-3 rounded-lg font-medium text-white bg-zinc-800 hover:bg-zinc-700 border border-white/10 transition-all duration-200 hover:border-white/20 mb-3"
+          onClick={() => setShowUpdatePlanModal(false)}
+        >
+          Continue Current Plan
+        </button>
+        <button
+          className="w-full py-3 rounded-lg font-medium text-white bg-orange-700 hover:bg-orange-800 border border-white/10 transition-all duration-200 hover:border-white/20 mb-3"
+          onClick={() => { window.location.href = '/api/adapt'; }}
+        >
+          I want to catch up - Update Plan
+        </button>
+        <button
+          className="w-full py-3 rounded-lg font-medium text-white bg-red-700 hover:bg-red-800 border border-white/10 transition-all duration-200 hover:border-white/20"
+          onClick={() => setShowRestartWarning(true)}
+        >
+          Restart Plan
+        </button>
+      </div>
     </div>
   );
 
+  // --- Restart Warning Modal ---
+  const renderRestartWarning = () => (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80">
+      <div className="bg-zinc-900 rounded-2xl shadow-2xl w-full max-w-md border border-red-500/40 p-6 relative">
+        <h3 className="text-xl font-bold text-red-500 mb-4">Are you sure?</h3>
+        <p className="text-white mb-6">This will reset all your progress. This action cannot be undone.</p>
+        <div className="flex gap-4 justify-end">
+          <button
+            className="px-5 py-2 bg-gray-700 text-gray-200 rounded-lg font-barlow hover:bg-gray-600 transition"
+            onClick={() => setShowRestartWarning(false)}
+          >
+            Cancel
+          </button>
+          <button
+            className="px-5 py-2 bg-red-700 text-white rounded-lg font-barlow font-bold shadow hover:bg-red-800 transition"
+            onClick={() => { setShowRestartWarning(false); setShowUpdatePlanModal(false); /* TODO: Add reset logic here */ }}
+          >
+            Confirm Reset
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+
+  // --- Patch skip options modal to show multi-skip button and remove default second button ---
   const renderSkipOptions = () => (
     <div className="px-6 pb-6 space-y-3">
-      <h3 className="text-xl font-bold text-white mb-4">What would you like to do?</h3>
+      <div className="flex items-center mb-4">
+        <button onClick={() => { setShowSkipOptions(false); }} className="mr-2 text-gray-400 hover:text-primary text-xl font-bold focus:outline-none">←</button>
+        <h3 className="text-xl font-bold text-white">Run Skip Options menu</h3>
+      </div>
       <button 
         onClick={handleLogSkip}
         className="w-full py-3 rounded-lg font-medium text-white bg-zinc-800 hover:bg-zinc-700 border border-white/10 transition-all duration-200 hover:border-white/20"
       >
         Log my skipped run
       </button>
+      {showMultiSkipButton && (
+        <button
+          onClick={() => setShowUpdatePlanModal(true)}
+          className="w-full py-3 rounded-lg font-medium text-white bg-orange-700 hover:bg-orange-800 border border-white/10 transition-all duration-200 hover:border-white/20"
+        >
+          Multiple Workouts Skipped - Go to Update Plan Menu
+        </button>
+      )}
+    </div>
+  );
+
+  // --- Render skip reasons modal ---
+  const renderSkipReasons = () => (
+    <div className="px-6 pb-6 space-y-3">
+      <div className="flex items-center mb-4">
+        <button onClick={() => { setShowSkipReasons(false); setShowSkipOptions(true); }} className="mr-2 text-gray-400 hover:text-primary text-xl font-bold focus:outline-none">←</button>
+        <h3 className="text-xl font-bold text-white">Why did you skip your run?</h3>
+      </div>
       <button 
-        onClick={handleUpdatePlan}
+        onClick={() => handleSkipReason('I was tired')}
         className="w-full py-3 rounded-lg font-medium text-white bg-zinc-800 hover:bg-zinc-700 border border-white/10 transition-all duration-200 hover:border-white/20"
       >
-        I'd like to catch up, help me create an updated plan
+        I was tired
+      </button>
+      <button 
+        onClick={() => handleSkipReason('I did not get the time')}
+        className="w-full py-3 rounded-lg font-medium text-white bg-zinc-800 hover:bg-zinc-700 border border-white/10 transition-all duration-200 hover:border-white/20"
+      >
+        I did not get the time
+      </button>
+      <button 
+        onClick={() => handleSkipReason('I was injured')}
+        className="w-full py-3 rounded-lg font-medium text-white bg-zinc-800 hover:bg-zinc-700 border border-white/10 transition-all duration-200 hover:border-white/20"
+      >
+        I was injured
       </button>
     </div>
   );
@@ -385,6 +503,8 @@ const StravaRunModal: React.FC<StravaRunModalProps> = ({
           </div>
         </div>
       )}
+      {showUpdatePlanModal && renderUpdatePlanModal()}
+      {showRestartWarning && renderRestartWarning()}
     </>
   );
 };

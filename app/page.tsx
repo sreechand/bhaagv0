@@ -76,15 +76,6 @@ export default function Home() {
       {showSamplePlanModal && (
         <SamplePlanModal onClose={() => setShowSamplePlanModal(false)} />
       )}
-      {showStravaRunModal && (
-        <StravaRunModal
-          isOpen={showStravaRunModal}
-          onClose={() => setShowStravaRunModal(false)}
-          onImport={() => { setShowStravaRunModal(false); }}
-          onManualLog={() => { setShowStravaRunModal(false); }}
-          onSkip={() => { setShowStravaRunModal(false); }}
-        />
-      )}
     </main>
   )
 }

@@ -118,14 +118,23 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
     if (pathname === "/dashboard/plan" && isLoggedIn) {
       const checkStrava = async () => {
         setCheckingStrava(true);
-        try {
-          const res = await fetch("/api/strava/activities?per_page=1");
-          setStravaConnected(res.ok);
-        } catch {
+        const { data: { user } } = await supabase.auth.getUser();
+        if (!user) {
           setStravaConnected(false);
-        } finally {
           setCheckingStrava(false);
+          return;
         }
+        const { data: stravaProfile } = await supabase
+          .from('strava_profiles')
+          .select('access_token, expires_at')
+          .eq('user_id', user.id)
+          .single();
+        if (stravaProfile && stravaProfile.access_token && Number(stravaProfile.expires_at) > Date.now() / 1000) {
+          setStravaConnected(true);
+        } else {
+          setStravaConnected(false);
+        }
+        setCheckingStrava(false);
       };
       checkStrava();
     }
@@ -157,20 +166,20 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
 
   return (
     <motion.header
-      className="fixed top-0 left-0 right-0 z-50 px-6 py-4 transition-all duration-300"
+      className="fixed top-0 left-0 right-0 z-50 px-4 py-1 transition-all duration-300 h-[64px] md:h-[68px] flex items-center"
       style={{
         backgroundColor,
         backdropFilter: backdropBlur,
       }}
     >
-      <div className="container mx-auto flex items-center justify-between">
+      <div className="container mx-auto flex items-center justify-between h-full">
         <motion.div
-          className="flex items-center"
+          className="flex items-center h-full"
           initial={{ opacity: 0, x: -20 }}
           animate={{ opacity: 1, x: 0 }}
           transition={{ duration: 0.5 }}
         >
-          <button onClick={() => !isDashboard && scrollToSection("home")} className="flex items-center">
+          <button onClick={() => !isDashboard && scrollToSection("home")} className="flex items-center h-full">
             <Logo className="text-4xl" href={isDashboard ? "/dashboard" : "/"} />
           </button>
         </motion.div>
@@ -222,7 +231,7 @@ export default function Navbar({ onLoginClick }: NavbarProps) {
                   checkingStrava ? (
                     <span className="mr-4 px-4 py-2 bg-gray-500 text-white rounded animate-pulse">Checking Strava...</span>
                   ) : stravaConnected ? (
-                    <span className="mr-4 px-4 py-2 bg-green-600 text-white rounded flex items-center gap-2">
+                    <span className="mr-4 px-4 py-2" style={{ background: '#fc4c02', color: 'white', borderRadius: '0.375rem', display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
                       <span style={{
                         display: 'inline-block',
                         width: 10,

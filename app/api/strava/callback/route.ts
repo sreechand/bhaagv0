@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from "next/headers";
+import { Database } from "@/types/supabase";
 
 export async function GET(req: NextRequest) {
   const code = req.nextUrl.searchParams.get("code");
@@ -30,6 +33,23 @@ export async function GET(req: NextRequest) {
   if (data.errors || data.error) {
     return NextResponse.json(data, { status: 400 });
   }
+
+  // Get the current user
+  const supabase = createRouteHandlerClient<Database>({ cookies });
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
+  }
+
+  // Upsert tokens into strava_profiles
+  await supabase.from('strava_profiles').upsert({
+    user_id: user.id,
+    strava_athlete_id: data.athlete?.id,
+    access_token: data.access_token,
+    refresh_token: data.refresh_token,
+    expires_at: data.expires_at,
+    updated_at: new Date().toISOString(),
+  }, { onConflict: 'user_id' });
 
   // Redirect to dashboard/plan
   return NextResponse.redirect(new URL('/dashboard/plan', req.nextUrl));

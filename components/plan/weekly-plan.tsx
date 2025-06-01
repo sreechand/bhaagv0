@@ -217,8 +217,13 @@ const WeeklyPlan: React.FC<WeeklyPlanProps> = ({ planSummary, weeks, sessions, w
 
   // Calculate weekly total distance (sum of all run distances in description)
   function extractDistance(desc: string): number {
-    const match = typeof desc === 'string' ? desc.match(/(\d+(?:\.\d+)?)\s*km/) : null;
-    return match ? parseFloat(match[1]) : 0;
+    if (typeof desc !== 'string') return 0;
+    const matches = desc.matchAll(/(\d+(?:\.\d+)?)\s*km/gi);
+    let total = 0;
+    for (const match of matches) {
+      total += parseFloat(match[1]);
+    }
+    return total;
   }
   const weeklyDistance = weekSessions
     .filter((s) => s.type === 'run' && typeof s.description === 'string')

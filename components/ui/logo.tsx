@@ -23,8 +23,8 @@ export default function Logo({ className = "", showGlow = true, href = "/" }: Lo
       <Image
         src="/BHAAG_strava.png"
         alt="BHAAG Logo"
-        width={120}
-        height={40}
+        width={90}
+        height={30}
         className="object-contain"
         priority
       />

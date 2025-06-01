@@ -1,45 +1,39 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
+import { createRouteHandlerClient } from '@supabase/auth-helpers-nextjs';
+import { cookies } from "next/headers";
+import { Database } from "@/types/supabase";
 
-const STRAVA_CLIENT_ID = "160986";
-const STRAVA_CLIENT_SECRET = "ec06b59ac354e1c8ec5818a22b35472a94aee895";
-const STRAVA_REFRESH_TOKEN = "6735c6bddb28b535e339e3e761f29c47e0b0c213";
-
-async function getStravaAccessToken() {
-  const response = await fetch("https://www.strava.com/oauth/token", {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({
-      client_id: STRAVA_CLIENT_ID,
-      client_secret: STRAVA_CLIENT_SECRET,
-      grant_type: "refresh_token",
-      refresh_token: STRAVA_REFRESH_TOKEN,
-    }),
-  });
-  const data = await response.json();
-  if (!response.ok) {
-    console.error("Failed to get access token:", data);
-    throw new Error(data.message || "Failed to get access token");
+export async function GET(req: NextRequest) {
+  const supabase = createRouteHandlerClient<Database>({ cookies });
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated" }, { status: 401 });
   }
-  return data.access_token;
-}
 
-export async function GET() {
-  try {
-    const accessToken = await getStravaAccessToken();
-    const activitiesRes = await fetch(
-      "https://www.strava.com/api/v3/athlete/activities?per_page=1&page=1",
-      {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      }
-    );
-    const activities = await activitiesRes.json();
-    if (!activitiesRes.ok) {
-      console.error("Failed to fetch activities:", activities);
-      throw new Error(activities.message || "Failed to fetch activities");
+  // Fetch user's Strava profile
+  const { data: stravaProfile } = await supabase
+    .from('strava_profiles')
+    .select('*')
+    .eq('user_id', user.id)
+    .single();
+
+  if (!stravaProfile || !stravaProfile.access_token) {
+    return NextResponse.json({ error: "Strava not connected" }, { status: 401 });
+  }
+
+  // Optionally: refresh token if expired (not implemented here)
+
+  // Use user's access token
+  const perPage = req.nextUrl.searchParams.get('per_page') || '1';
+  const activitiesRes = await fetch(
+    `https://www.strava.com/api/v3/athlete/activities?per_page=${perPage}&page=1`,
+    {
+      headers: { Authorization: `Bearer ${stravaProfile.access_token}` },
     }
-    return NextResponse.json(activities[0] || {});
-  } catch (err: any) {
-    console.error("API error:", err);
-    return NextResponse.json({ error: err.message }, { status: 500 });
+  );
+  const activities = await activitiesRes.json();
+  if (!activitiesRes.ok) {
+    return NextResponse.json({ error: activities.message || "Failed to fetch activities" }, { status: 500 });
   }
+  return NextResponse.json(activities);
 }

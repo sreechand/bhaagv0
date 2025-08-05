@@ -20,7 +20,7 @@ const teamMembers: TeamMember[] = [
     role: "Founder & Lead AI Developer",
     bio: "Runner | Automation Engineering Leader | Vibe Coding Enthusiast",
     image: "/team/Manish-Arora.png", // You'll need to add these images to the public/team directory
-    linkedin: "www.linkedin.com/in/manish-arora-020b8651",
+    linkedin: "https://www.linkedin.com/in/manish-arora-020b8651",
     github: "https://github.com/manar8x"
   },
   {
